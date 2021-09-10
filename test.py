@@ -1,6 +1,10 @@
 import discord
-from api_token import API_TOKEN
+import logging
 
+from api_token import API_TOKEN
+from functions import *
+
+logging.basicConfig(level=logging.INFO)
 client = discord.Client()
 
 @client.event
@@ -13,7 +17,7 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content == 'hello':
-        await message.channel.send('Hi there')
+    if message.content.startswith('hello'):
+        await message.channel.send(greetings())
 
 client.run(API_TOKEN)
