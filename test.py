@@ -1,8 +1,8 @@
 import discord
 import logging
-
-from api_token import API_TOKEN
+import os
 from functions import *
+# from api_token import API_TOKEN
 
 logging.basicConfig(level=logging.INFO)
 client = discord.Client()
