@@ -1,8 +1,10 @@
 import discord
 import logging
 import os
+
+from os.path import exists
+from dotenv import load_dotenv
 from functions import *
-# from api_token import API_TOKEN
 
 logging.basicConfig(level=logging.INFO)
 client = discord.Client()
@@ -19,5 +21,14 @@ async def on_message(message):
 
     if message.content.startswith('hello'):
         await message.channel.send(greetings())
+
+# -- Make this better --
+API_TOKEN = ''
+if (exists('./.env')):
+    env_path = '.env'
+    load_dotenv(dotenv_path=env_path)
+    API_TOKEN = os.environ.get('API_TOKEN')
+else: 
+    API_TOKEN = os.environ.get('API_TOKEN')
 
 client.run(API_TOKEN)
