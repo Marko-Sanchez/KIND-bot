@@ -13,3 +13,10 @@ welcome_dict = ['Hey! Welcome',
                 'Welcome to the jungle!']
 def welcome():
     return random.choice(welcome_dict)
+
+# Used to set roles via reactions.
+emoji_roles = {
+    "\U0001F396":'Gamer',
+    "\U0001F3C6":'Tournaments',
+    "\U0001F4DA":'Student'
+}

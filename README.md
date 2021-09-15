@@ -10,7 +10,7 @@ Features
 Objectives
 ----
 - [ ] Implement DataBase to save user preferences.
-- [ ] Implement emote reaction role setting.
+- [x] Implement emote reaction role setting.
 - [ ] Implement emote reaction role colors.
 - [ ] Connect to World Of Tanks API.
 - [ ] Display information using Graphs, etc.
