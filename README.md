@@ -9,8 +9,10 @@ Features
 
 Objectives
 ----
-- [ ] Implement DataBase to save user preferences.
 - [x] Implement emote reaction role setting.
-- [ ] Implement emote reaction role colors.
+- [x] Dynamic behavior on bot joining a new server.
+- [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
+- [ ] Add more bot commands alongside command permissions.
+- [ ] Implement DataBase to save user preferences.
 - [ ] Connect to World Of Tanks API.
 - [ ] Display information using Graphs, etc.

@@ -20,3 +20,12 @@ emoji_roles = {
     "\U0001F3C6":'Tournaments',
     "\U0001F4DA":'Student'
 }
+
+# permissions = [ read_messages = True,
+#                 add_reactions = False,
+#                 send_messages = False,
+#                 manage_message = False,
+#                 mention_everyone=False,
+#                 read_message_history=True,
+#                 attach_files=False]
+

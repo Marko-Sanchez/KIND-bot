@@ -2,6 +2,7 @@ import discord
 import logging
 import os
 import re
+import asyncio
 
 from discord.ext import commands
 from os.path import exists
@@ -17,13 +18,86 @@ client = commands.Bot(command_prefix = '!', intents = intents)
 async def on_ready():
     print('online')
 
+# When bot joins a new server it checks if #Welcome and #role-settings channel are created
+# if not it creates them. TODO: Ask server Admin for permission to create channels and then delete msg.
+@client.event
+async def on_guild_join(guild):
+    admin = guild.owner
+    ask_welcome = ask_roleSetting = False
+    total_request = 0
+    reactions = ["\u2705", "\u274C"]
+
+    channel = discord.utils.get(guild.text_channels, name='welcome')
+    if channel is None:
+        ask_welcome = True
+
+    channel = discord.utils.get(guild.text_channels, name='role-setting')
+    if channel is None:
+        ask_roleSetting = True
+
+    # All channels present.
+    if not ask_welcome and not ask_roleSetting:
+        return
+
+    # Send embed message to server admin asking for permission to create text channels.
+    if ask_welcome:
+        embed = discord.Embed(
+            title = 'Channel Creation',
+            colour = 0xaa6ca3
+        )
+        embed.add_field(name ='#welcome', value='Create Welcome channel', inline=True)
+        admin_message = await admin.send(embed=embed)
+        for emoji in reactions:
+            await admin_message.add_reaction(emoji)
+        total_request += 1
+
+    if ask_roleSetting:
+        embed = discord.Embed(
+            title = 'Channel Creation',
+            colour = 0xaa6ca3
+        )
+        embed.add_field(name ='#role-setting', value='Create Role-setting channel', inline=True)
+        admin_message = await admin.send(embed=embed)
+        for emoji in reactions:
+            await admin_message.add_reaction(emoji)
+        total_request += 1
+
+    def check(reaction, user):
+        return str(reaction.emoji) in reactions and user.id == admin.id
+    # Wait for user
+    for request in range(total_request):
+        try:
+            reaction, user = await client.wait_for('reaction_add', check=check, timeout= 60.0)
+            channel = reaction.message.embeds[0].fields[0].name
+
+            # Create channel otherwise ignore.
+            if str(reaction.emoji) == reactions[0]:
+                print(f'{str(reaction.emoji)} {channel}')
+                created_channel = await guild.create_text_channel(channel.strip('#'))
+                await created_channel.set_permissions(guild.default_role, read_messages = True,
+                                                                    add_reactions = False,
+                                                                    send_messages = False,
+                                                                    manage_emojis = False,
+                                                                    manage_messages = False,
+                                                                    mention_everyone=False,
+                                                                    read_message_history=True,
+                                                                    attach_files=False)
+            else:
+                print(f'Admin declined to add {channel}')
+            await reaction.message.delete()
+        except asyncio.TimeoutError:
+            print('Admin declined to React')
+            break
+    # Get top role,
+    client.user.roles[1].edit(position = 0)
+
 @client.event
 async def on_message(message):
-    # If we are the one's messaging, ignore: avoids infinite loops.
+
     if message.author == client.user:
         return
 
-    hello_regex = re.compile('^[hH]ello!?|^[hH]i!|[hH]ey?')
+    hello_regex = re.compile('^[hH]ello!?|^[hH]i!?|[hH]ey')
     if hello_regex.match(message.content):
         await message.channel.send(greetings())
 
@@ -31,24 +105,35 @@ async def on_message(message):
 
 @client.event
 async def on_member_join(member):
-    channel = client.get_channel(886433874664628264) # update this to be more dynamic
+
+    channel = discord.utils.get(member.guild.text_channels, name='welcome')
+    if channel is None:
+        return
+
     await channel.send(f'{member} {welcome()}')
 
 @client.event
 async def on_member_remove(member):
-    channel = client.get_channel(886433874664628264)
+    channel = discord.utils.get(member.guild.text_channels, name='welcome')
+
+    if member == client.user:
+        return
+    elif channel is None:
+        return
+    # Instead of saying a goodbye message maybe delete there welcome from the welcome channel
     await channel.send(f'{member} imagine leaving lmao, bye <:nail_care:886811404626165861>')
 
-# Goal is to add a role to user, thereby granting them with a gamer tag to let use know
-# How active they plan to be. Toggle to turn off tag also.
+# Listens for reaction in #role-setting channel.
 @client.event
 async def on_raw_reaction_add(payload):
-    roles_channel = 887087596457558037
+    roles_channel = discord.utils.get(payload.member.guild.text_channels, name='role-setting')
 
     if payload.member == client.user:
         # If bot removes a reaction ignore.
         return
-    elif payload.channel_id != roles_channel:
+    elif roles_channel is None:
+        return
+    elif payload.channel_id != roles_channel.id:
         # If we are not in roles channel ignore.
         return
     elif str(payload.emoji) in emoji_roles:
@@ -59,12 +144,12 @@ async def on_raw_reaction_add(payload):
 
 @client.event
 async def on_raw_reaction_remove(payload):
-    roles_channel = 887087596457558037
+    roles_channel = discord.utils.get(payload.member.guild.text_channels, name='role-setting')
 
     if payload.member == client.user:
         # If bot removes a reaction ignore.
         return
-    elif payload.channel_id != roles_channel:
+    elif payload.channel_id != roles_channel.id:
         # If we are not in roles channel ignore.
         return
     elif str(payload.emoji) in emoji_roles:
