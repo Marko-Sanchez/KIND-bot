@@ -88,8 +88,6 @@ async def on_guild_join(guild):
         except asyncio.TimeoutError:
             print('Admin declined to React')
             break
-    # Get top role,
-    client.user.roles[1].edit(position = 0)
 
 @client.event
 async def on_message(message):
@@ -137,14 +135,20 @@ async def on_raw_reaction_add(payload):
         # If we are not in roles channel ignore.
         return
     elif str(payload.emoji) in emoji_roles:
-        # Add role to user
-        guild = client.get_guild(payload.guild_id)
-        role = discord.utils.get(guild.roles, name=emoji_roles[str(payload.emoji)])
-        await payload.member.add_roles(role)
+        try:
+            # Add role to user
+            guild = client.get_guild(payload.guild_id)
+            role = discord.utils.get(guild.roles, name=emoji_roles[str(payload.emoji)])
+            await payload.member.add_roles(role)
+        except discord.errors.Forbidden:
+            # Let admin know to set role higher.
+            admin = guild.owner
+            await admin.send(reaction_permission(emoji_roles[str(payload.emoji)]), delete_after = 60)
 
 @client.event
 async def on_raw_reaction_remove(payload):
-    roles_channel = discord.utils.get(payload.member.guild.text_channels, name='role-setting')
+    guild = client.get_guild(payload.guild_id)
+    roles_channel = discord.utils.get(guild.text_channels, name='role-setting')
 
     if payload.member == client.user:
         # If bot removes a reaction ignore.
@@ -153,16 +157,27 @@ async def on_raw_reaction_remove(payload):
         # If we are not in roles channel ignore.
         return
     elif str(payload.emoji) in emoji_roles:
-        # Remove role from user
-        guild = client.get_guild(payload.guild_id)
-        role = discord.utils.get(guild.roles, name=emoji_roles[str(payload.emoji)])
-        user = guild.get_member(payload.user_id)
-        await user.remove_roles(role)
+        try:
+            # Remove role from user
+            role = discord.utils.get(guild.roles, name=emoji_roles[str(payload.emoji)])
+            user = guild.get_member(payload.user_id)
+            await user.remove_roles(role)
+        except discord.errors.Forbidden:
+            # Let admin know to set role higher.
+            admin = guild.owner
+            await admin.send(reaction_permission(emoji_roles[str(payload.emoji)]), delete_after = 60)
 
-# Delete Most recent messages
-# TODO: user permission, and only delete user's messages.
-@client.command()
+# Deletes most recent messages
+@client.command(help=dd_help)
 async def dd(content, amount = 3):
+    def is_user(user):
+        return user.id == content.member.id
+    await content.channel.purge(limit = amount + 1, check=is_user)
+
+# Mod command that deletes all user messages in a channel.
+# TODO: Add permisions so only mod can use and maybe the option to delete another users messages.
+@client.command(help=dD_help)
+async def DD(content, amount = 3):
     await content.channel.purge(limit = amount + 1)
 
 @client.command()
@@ -170,6 +185,7 @@ async def ping(context):
     await context.channel.send(f'ping: {round(client.latency * 1000)}ms')
 
 # Sends a message to roles channel.
+# Make adding roles more dynamic, let admin have the ability to create/remove roles.
 @client.command()
 async def embedM(context):
     # Get roles channel.

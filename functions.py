@@ -1,6 +1,6 @@
 import random
 
-hello_dict =['hi', 'Hi', 'Hello!', 'hello', 'sup'] 
+hello_dict =['hi', 'Hi', 'Hello!', 'hello', 'sup']
 
 def greetings():
     return random.choice(hello_dict)
@@ -21,11 +21,9 @@ emoji_roles = {
     "\U0001F4DA":'Student'
 }
 
-# permissions = [ read_messages = True,
-#                 add_reactions = False,
-#                 send_messages = False,
-#                 manage_message = False,
-#                 mention_everyone=False,
-#                 read_message_history=True,
-#                 attach_files=False]
+def reaction_permission(reaction):
+    return f'I am un-able to assign/remove \'{reaction}\' role\n please remeber to set my role higher then the roles you wish me to assign.'
 
+# Command information.
+dd_help = "Delete callers messages takes a value otherwise deletes most recent 3."
+dD_help = "Mod command that deletes all user messages in a channel."
