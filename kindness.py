@@ -167,18 +167,26 @@ async def on_raw_reaction_remove(payload):
             admin = guild.owner
             await admin.send(reaction_permission(emoji_roles[str(payload.emoji)]), delete_after = 60)
 
-# Deletes most recent messages
+# Deletes users most recent messages, sleeps to avoid rate limit.
 @client.command(help=dd_help)
-async def dd(content, amount = 3):
-    def is_user(user):
-        return user.id == content.member.id
-    await content.channel.purge(limit = amount + 1, check=is_user)
+async def dd(context, amount = 3):
+
+    if amount == 0: return
+    deleted = 0
+    async for message in context.channel.history(limit=50):
+        if message.author == context.message.author:
+            deleted +=1
+            await asyncio.sleep(1)
+            await message.delete()
+        if deleted > amount:
+            return
 
 # Mod command that deletes all user messages in a channel.
-# TODO: Add permisions so only mod can use and maybe the option to delete another users messages.
+# TODO: Option to delete another users messages.
 @client.command(help=dD_help)
-async def DD(content, amount = 3):
-    await content.channel.purge(limit = amount + 1)
+@commands.has_permissions(administrator=True)
+async def DD(context, amount = 3):
+    await context.channel.purge(limit = amount + 1)
 
 @client.command()
 async def ping(context):
@@ -186,10 +194,10 @@ async def ping(context):
 
 # Sends a message to roles channel.
 # Make adding roles more dynamic, let admin have the ability to create/remove roles.
-@client.command()
-async def embedM(context):
+@client.command(help=roles_help)
+async def roles(context):
     # Get roles channel.
-    channel = client.get_channel(887087596457558037)
+    roles_channel = discord.utils.get(context.guild.text_channels, name='role-setting')
     embed = discord.Embed(
         title = 'Server Roles',
         colour = 0xaa6ca3
@@ -197,15 +205,13 @@ async def embedM(context):
 
     embed.set_image( url = client.user.avatar_url)
     # embed.set_thumbnail( url = client.user.avatar_url) # Use this to use server avatar
-    embed.add_field(name ='<:military_medal:887088761110929439>', value='Gamer', inline=True)
-    embed.add_field(name ='<:books:887536109175853137>', value='Student', inline=True)
-    embed.add_field(name ='<:trophy:887535212693696572>', value='Tournament', inline=True)
+    for reaction, name in emoji_roles.items():
+        embed.add_field(name =reaction, value=name, inline=True)
 
     # Send embed message
-    message = await channel.send(embed=embed)
-    await message.add_reaction("\U0001F396")# Gamer
-    await message.add_reaction("\U0001F4DA")# Student
-    await message.add_reaction("\U0001F3C6")# Tournament
+    message = await roles_channel.send(embed=embed)
+    for reaction in emoji_roles:
+        await message.add_reaction(reaction)# Gamer
 
 
 # -- Make this better --

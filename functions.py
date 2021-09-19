@@ -25,5 +25,6 @@ def reaction_permission(reaction):
     return f'I am un-able to assign/remove \'{reaction}\' role\n please remeber to set my role higher then the roles you wish me to assign.'
 
 # Command information.
-dd_help = "Delete callers messages takes a value otherwise deletes most recent 3."
+dd_help = "Delete callers messages takes a amount; default value: 3."
 dD_help = "Mod command that deletes all user messages in a channel."
+roles_help = "Let members self assign roles via reaction, creates message in #role-setting"
