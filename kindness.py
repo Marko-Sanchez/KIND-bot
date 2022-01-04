@@ -8,18 +8,31 @@ from discord.ext import commands
 from os.path import exists
 from dotenv import load_dotenv
 from functions import *
+import pymongo
+from pymongo import MongoClient
+
+# -- Make this better --
+API_TOKEN = ''
+MONGO_TOKEN = ''
+if (exists('./.env')):
+    env_path = '.env'
+    load_dotenv(dotenv_path=env_path)
+    API_TOKEN = os.environ.get('API_TOKEN')
+    MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
+else:
+    API_TOKEN = os.environ.get('API_TOKEN')
+    MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
+
+cluster = pymongo.MongoClient(MONGO_TOKEN)
+db = cluster.discord
 
 logging.basicConfig(level=logging.INFO)
 intents = discord.Intents.all()
 discord.member = True
 client = commands.Bot(command_prefix = '!', intents = intents)
 
-@client.event
-async def on_ready():
-    print('online')
-
 # When bot joins a new server it checks if #Welcome and #role-settings channel are created
-# if not it creates them. TODO: Ask server Admin for permission to create channels and then delete msg.
+# if not it creates them.
 @client.event
 async def on_guild_join(guild):
     admin = guild.owner
@@ -87,6 +100,7 @@ async def on_guild_join(guild):
             await reaction.message.delete()
         except asyncio.TimeoutError:
             print('Admin declined to React')
+            await reaction.message.delete()
             break
 
 @client.event
@@ -94,12 +108,37 @@ async def on_message(message):
 
     if message.author == client.user:
         return
+    elif (await client.get_context(message)).valid:
+        await client.process_commands(message) # Wait for command to be executed.
+        return
 
     hello_regex = re.compile('^[hH]ello!?|^[hH]i!?|[hH]ey')
     if hello_regex.match(message.content):
         await message.channel.send(greetings())
 
-    await client.process_commands(message) # on_message blocks other commands needs this.
+    # User level up:
+    await add_experience(message)
+
+@client.event
+async def add_experience(message):
+    author_id = str(message.author.id)# Convert to string to avoid duplicates
+    g_id = message.author.guild.name
+    query = {g_id:author_id}
+
+    stats = db.levels.find_one(query)
+    if stats is None:
+        newuser = {g_id:author_id,"user_info":{"exp":5,"level":1}}
+        db.levels.insert_one(newuser)
+    else:
+        exp = stats["user_info"]["exp"] + 5
+        initial_level = stats["user_info"]["level"]
+        new_level = int(exp ** (1/4))
+
+        db.levels.update_one(query, {"$set":{"user_info.exp":exp}})
+
+        if initial_level < new_level:
+             await message.channel.send(f'{message.author} has leveled up to level {new_level}')
+             db.levels.update_one(query, {"$set":{"user_info.level":new_level}})
 
 @client.event
 async def on_member_join(member):
@@ -176,7 +215,7 @@ async def dd(context, amount = 3):
     async for message in context.channel.history(limit=50):
         if message.author == context.message.author:
             deleted +=1
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
             await message.delete()
         if deleted > amount:
             return
@@ -212,15 +251,5 @@ async def roles(context):
     message = await roles_channel.send(embed=embed)
     for reaction in emoji_roles:
         await message.add_reaction(reaction)# Gamer
-
-
-# -- Make this better --
-API_TOKEN = ''
-if (exists('./.env')):
-    env_path = '.env'
-    load_dotenv(dotenv_path=env_path)
-    API_TOKEN = os.environ.get('API_TOKEN')
-else:
-    API_TOKEN = os.environ.get('API_TOKEN')
 
 client.run(API_TOKEN)
