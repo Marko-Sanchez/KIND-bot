@@ -11,17 +11,19 @@ from functions import *
 import pymongo
 from pymongo import MongoClient
 
-# -- Make this better --
-API_TOKEN = ''
-MONGO_TOKEN = ''
-if (exists('./.env')):
-    env_path = '.env'
-    load_dotenv(dotenv_path=env_path)
-    API_TOKEN = os.environ.get('API_TOKEN')
-    MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
-else:
-    API_TOKEN = os.environ.get('API_TOKEN')
-    MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
+API_TOKEN = os.environ.get('API_TOKEN')
+MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
+# # -- Make this better --
+# API_TOKEN = ''
+# MONGO_TOKEN = ''
+# if (exists('./.env')):
+#     env_path = '.env'
+#     load_dotenv(dotenv_path=env_path)
+#     API_TOKEN = os.environ.get('API_TOKEN')
+#     MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
+# else:
+#     API_TOKEN = os.environ.get('API_TOKEN')
+#     MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
 
 cluster = pymongo.MongoClient(MONGO_TOKEN)
 db = cluster.discord
