@@ -1,4 +1,4 @@
-# KIND-BOT ![python](https://img.shields.io/badge/-python-green)
+# KIND-BOT ![python](https://img.shields.io/badge/-python-green) ![Database](https://img.shields.io/badge/-MongoDB-blue)
 A python based bot deployed using heroku and mongodb, intially made for the [KIND] clan in World Of Tank Blitz.
 
 Features
