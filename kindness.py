@@ -13,17 +13,6 @@ from pymongo import MongoClient
 
 API_TOKEN = os.environ.get('API_TOKEN')
 MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
-# # -- Make this better --
-# API_TOKEN = ''
-# MONGO_TOKEN = ''
-# if (exists('./.env')):
-#     env_path = '.env'
-#     load_dotenv(dotenv_path=env_path)
-#     API_TOKEN = os.environ.get('API_TOKEN')
-#     MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
-# else:
-#     API_TOKEN = os.environ.get('API_TOKEN')
-#     MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
 
 cluster = pymongo.MongoClient(MONGO_TOKEN)
 db = cluster.discord
@@ -136,7 +125,7 @@ async def add_experience(message):
         initial_level = stats["user_info"]["level"]
         new_level = int(exp ** (1/4))
 
-        db.levels.update_one(query, {"$set":{"user_info.exp":exp}})
+        db.levels.update_one(query, {"$inc":{"user_info.exp":5}})
 
         if initial_level < new_level:
              await message.channel.send(f'{message.author} has leveled up to level {new_level}')
