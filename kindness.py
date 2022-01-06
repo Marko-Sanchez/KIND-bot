@@ -22,7 +22,7 @@ intents = discord.Intents.all()
 discord.member = True
 client = commands.Bot(command_prefix = '!', intents = intents)
 
-# When bot joins a new server it checks if #Welcome and #role-settings channel are created
+# When bot joins a new server it checks if #Welcome and #roles channels are created
 # if not it creates them.
 @client.event
 async def on_guild_join(guild):
@@ -35,7 +35,7 @@ async def on_guild_join(guild):
     if channel is None:
         ask_welcome = True
 
-    channel = discord.utils.get(guild.text_channels, name='role-setting')
+    channel = discord.utils.get(guild.text_channels, name='roles')
     if channel is None:
         ask_roleSetting = True
 
@@ -60,7 +60,7 @@ async def on_guild_join(guild):
             title = 'Channel Creation',
             colour = 0xaa6ca3
         )
-        embed.add_field(name ='#role-setting', value='Create Role-setting channel', inline=True)
+        embed.add_field(name ='#roles', value='Create Role channel', inline=True)
         admin_message = await admin.send(embed=embed)
         for emoji in reactions:
             await admin_message.add_reaction(emoji)
@@ -112,7 +112,7 @@ async def on_message(message):
 
 @client.event
 async def add_experience(message):
-    author_id = str(message.author.id)# Convert to string to avoid duplicates
+    author_id = str(message.author.id)
     g_id = message.author.guild.name
     query = {g_id:author_id}
 
@@ -151,10 +151,12 @@ async def on_member_remove(member):
     # Instead of saying a goodbye message maybe delete there welcome from the welcome channel
     await channel.send(f'{member} imagine leaving lmao, bye <:nail_care:886811404626165861>')
 
-# Listens for reaction in #role-setting channel.
+# Listens for reaction in #roles channel.
 @client.event
 async def on_raw_reaction_add(payload):
-    roles_channel = discord.utils.get(payload.member.guild.text_channels, name='role-setting')
+    if payload.member is None:
+        return
+    roles_channel = discord.utils.get(payload.member.guild.text_channels, name='roles')
 
     if payload.member == client.user:
         # If bot removes a reaction ignore.
@@ -177,8 +179,10 @@ async def on_raw_reaction_add(payload):
 
 @client.event
 async def on_raw_reaction_remove(payload):
+    if payload.member is None:
+        return
     guild = client.get_guild(payload.guild_id)
-    roles_channel = discord.utils.get(guild.text_channels, name='role-setting')
+    roles_channel = discord.utils.get(guild.text_channels, name='roles')
 
     if payload.member == client.user:
         # If bot removes a reaction ignore.
@@ -197,37 +201,16 @@ async def on_raw_reaction_remove(payload):
             admin = guild.owner
             await admin.send(reaction_permission(emoji_roles[str(payload.emoji)]), delete_after = 60)
 
-# Deletes users most recent messages, sleeps to avoid rate limit.
-@client.command(help=dd_help)
-async def dd(context, amount = 3):
-
-    if amount == 0: return
-    deleted = 0
-    async for message in context.channel.history(limit=50):
-        if message.author == context.message.author:
-            deleted +=1
-            await asyncio.sleep(0.5)
-            await message.delete()
-        if deleted > amount:
-            return
-
-# Mod command that deletes all user messages in a channel.
-# TODO: Option to delete another users messages.
-@client.command(help=dD_help)
-@commands.has_permissions(administrator=True)
-async def DD(context, amount = 3):
-    await context.channel.purge(limit = amount + 1)
-
-@client.command()
-async def ping(context):
-    await context.channel.send(f'ping: {round(client.latency * 1000)}ms')
-
 # Sends a message to roles channel.
 # Make adding roles more dynamic, let admin have the ability to create/remove roles.
 @client.command(help=roles_help)
 async def roles(context):
     # Get roles channel.
-    roles_channel = discord.utils.get(context.guild.text_channels, name='role-setting')
+    roles_channel = discord.utils.get(context.guild.text_channels, name='roles')
+    if roles_channel is None:
+        await context.channel.send('A channel with name \'roles\' is needed', delete_after=30.0)
+        return
+
     embed = discord.Embed(
         title = 'Server Roles',
         colour = 0xaa6ca3
@@ -240,7 +223,45 @@ async def roles(context):
 
     # Send embed message
     message = await roles_channel.send(embed=embed)
+    # Change to add server specific emotes:
     for reaction in emoji_roles:
-        await message.add_reaction(reaction)# Gamer
+        await message.add_reaction(reaction)
+
+# Deletes users most recent messages, sleeps to avoid rate limit.
+@client.command(help=dd_help)
+async def dd(context, amount = 3):
+    if amount == 0:
+        return
+    deleted = 0
+    async for message in context.channel.history(limit=50):
+        if message.author == context.message.author:
+            deleted +=1
+            await asyncio.sleep(0.5)
+            await message.delete()
+        if deleted > amount:
+            return
+
+# Administrative command takes in optional arguements
+# amount: of messages to delete, member: members message to delete.
+@client.command(help=dD_help)
+@commands.has_permissions(administrator=True)
+async def DD(context, amount: int = 3, member: discord.Member = None):
+    if member is None:
+        await context.channel.purge(limit = amount + 1)
+    else:
+        if member is None:
+            await context.channel.send(f'User {member} does not exist in this server', delete_after=30.0)
+            return
+
+        if amount == 0:
+            return
+        deleted = 0
+        async for message in context.channel.history(limit=50):
+            if member == message.author:
+                deleted += 1
+                await asyncio.sleep(0.5)
+                await message.delete()
+            if deleted >= amount:
+                return
 
 client.run(API_TOKEN)
