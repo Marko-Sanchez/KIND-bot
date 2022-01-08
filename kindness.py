@@ -22,6 +22,25 @@ intents = discord.Intents.all()
 discord.member = True
 client = commands.Bot(command_prefix = '!', intents = intents)
 
+async def roleEmbed(roles_channel):
+
+    embed = discord.Embed(
+        title = 'Server Roles',
+        colour = 0xaa6ca3
+    )
+
+    embed.set_image(url = client.user.avatar_url)
+    for reaction, name in emoji_roles.items():
+        embed.add_field(name =reaction, value=name, inline=True)
+
+    # Send embed message
+    message = await roles_channel.send(embed=embed)
+
+    # Change to add server specific emotes:
+    for reaction in emoji_roles:
+        await message.add_reaction(reaction)
+
+
 # When bot joins a new server it checks if #Welcome and #roles channels are created
 # if not it creates them.
 @client.event
@@ -72,12 +91,11 @@ async def on_guild_join(guild):
     for request in range(total_request):
         try:
             reaction, user = await client.wait_for('reaction_add', check=check, timeout= 60.0)
-            channel = reaction.message.embeds[0].fields[0].name
+            channelName = reaction.message.embeds[0].fields[0].name
 
             # Create channel otherwise ignore.
             if str(reaction.emoji) == reactions[0]:
-                print(f'{str(reaction.emoji)} {channel}')
-                created_channel = await guild.create_text_channel(channel.strip('#'))
+                created_channel = await guild.create_text_channel(channelName.strip('#'))
                 await created_channel.set_permissions(guild.default_role, read_messages = True,
                                                                     add_reactions = False,
                                                                     send_messages = False,
@@ -86,8 +104,11 @@ async def on_guild_join(guild):
                                                                     mention_everyone=False,
                                                                     read_message_history=True,
                                                                     attach_files=False)
+                # If we are creating 'roles' channel, send roles embed:
+                if channelName.strip('#') == 'roles':
+                    await roleEmbed(created_channel)
             else:
-                print(f'Admin declined to add {channel}')
+                print(f'Admin declined to add {channelName}')
             await reaction.message.delete()
         except asyncio.TimeoutError:
             print('Admin declined to React')
@@ -179,12 +200,12 @@ async def on_raw_reaction_add(payload):
 
 @client.event
 async def on_raw_reaction_remove(payload):
-    if payload.member is None:
-        return
+
+    # Payload.member does not exist(in remove), thus different method to get channel.
     guild = client.get_guild(payload.guild_id)
     roles_channel = discord.utils.get(guild.text_channels, name='roles')
 
-    if payload.member == client.user:
+    if payload.user_id == client.user.id:
         # If bot removes a reaction ignore.
         return
     elif payload.channel_id != roles_channel.id:
@@ -211,26 +232,12 @@ async def roles(context):
         await context.channel.send('A channel with name \'roles\' is needed', delete_after=30.0)
         return
 
-    embed = discord.Embed(
-        title = 'Server Roles',
-        colour = 0xaa6ca3
-    )
-
-    embed.set_image( url = client.user.avatar_url)
-    # embed.set_thumbnail( url = client.user.avatar_url) # Use this to use server avatar
-    for reaction, name in emoji_roles.items():
-        embed.add_field(name =reaction, value=name, inline=True)
-
-    # Send embed message
-    message = await roles_channel.send(embed=embed)
-    # Change to add server specific emotes:
-    for reaction in emoji_roles:
-        await message.add_reaction(reaction)
+    await roleEmbed(roles_channel)
 
 # Deletes users most recent messages, sleeps to avoid rate limit.
 @client.command(help=dd_help)
-async def dd(context, amount = 3):
-    if amount == 0:
+async def dd(context, amount:int = 3):
+    if amount == 0 or amount > 20:
         return
     deleted = 0
     async for message in context.channel.history(limit=50):
@@ -253,7 +260,7 @@ async def DD(context, amount: int = 3, member: discord.Member = None):
             await context.channel.send(f'User {member} does not exist in this server', delete_after=30.0)
             return
 
-        if amount == 0:
+        if amount == 0 or amount > 20:
             return
         deleted = 0
         async for message in context.channel.history(limit=50):
