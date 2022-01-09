@@ -20,7 +20,14 @@ db = cluster.discord
 logging.basicConfig(level=logging.INFO)
 intents = discord.Intents.all()
 discord.member = True
-client = commands.Bot(command_prefix = '!', intents = intents)
+client = commands.Bot(command_prefix = '!', help_command=None, intents = intents)
+client.remove_command('help')
+
+# Load Cogs:
+for filename in os.listdir('./cogs'):
+    if filename.endswith('py'):
+        client.load_extension(f'cogs.{filename[:-3]}')
+
 
 async def roleEmbed(roles_channel):
 
