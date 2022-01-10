@@ -14,6 +14,13 @@ welcome_dict = ['Hey! Welcome',
 def welcome():
     return random.choice(welcome_dict)
 
+tip_of_the_day = ['smh my head',
+                  '!help for a list of commands',
+                  'Chose your role in the \#roles channel',
+                  'At your service']
+def reply():
+    return random.choice(tip_of_the_day)
+
 # Used to set roles via reactions.
 emoji_roles = {
     "\U0001F396":'Gamer',

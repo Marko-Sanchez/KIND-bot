@@ -125,7 +125,7 @@ async def on_guild_join(guild):
 @client.event
 async def on_message(message):
 
-    if message.author == client.user:
+    if message.author.bot:
         return
     elif (await client.get_context(message)).valid:
         await client.process_commands(message) # Wait for command to be executed.
@@ -134,6 +134,8 @@ async def on_message(message):
     hello_regex = re.compile('^[hH]ello!?|^[hH]i!?|[hH]ey')
     if hello_regex.match(message.content):
         await message.channel.send(greetings())
+    elif client.user in message.mentions:
+        await message.channel.send(reply())
 
     # User level up:
     await add_experience(message)
@@ -255,6 +257,11 @@ async def dd(context, amount:int = 3):
         if deleted > amount:
             return
 
+@dd.error
+async def dd_error(context, error):
+    if isinstance(error, commands.BadArgument):
+        await context.send('Make sure to pass in a integer example: !dd 2')
+
 # Administrative command takes in optional arguements
 # amount: of messages to delete, member: members message to delete.
 @client.command(help=dD_help)
@@ -277,5 +284,13 @@ async def DD(context, amount: int = 3, member: discord.Member = None):
                 await message.delete()
             if deleted >= amount:
                 return
+
+@DD.error
+async def DD_error(context, error):
+    if isinstance(error, commands.BadArgument):
+        await context.send('Make sure to pass in a integer example: !DD 2 or !DD 4 @USER')
+    elif isinstance(error, commands.MissingPermissions):
+        # DO nothing for now:
+        return
 
 client.run(API_TOKEN)
