@@ -188,7 +188,7 @@ async def on_raw_reaction_add(payload):
         return
     roles_channel = discord.utils.get(payload.member.guild.text_channels, name='roles')
 
-    if payload.member == client.user:
+    if payload.member.bot:
         # If bot removes a reaction ignore.
         return
     elif roles_channel is None:
@@ -201,6 +201,10 @@ async def on_raw_reaction_add(payload):
             # Add role to user
             guild = client.get_guild(payload.guild_id)
             role = discord.utils.get(guild.roles, name=emoji_roles[str(payload.emoji)])
+
+            if role is None:
+                await roles_channel.send(f'`A Role has not been set for` {payload.emoji}` {emoji_roles[str(payload.emoji)]}, Notify admin`', delete_after = 30.0)
+                return
             await payload.member.add_roles(role)
         except discord.errors.Forbidden:
             # Let admin know to set role higher.
@@ -224,6 +228,9 @@ async def on_raw_reaction_remove(payload):
         try:
             # Remove role from user
             role = discord.utils.get(guild.roles, name=emoji_roles[str(payload.emoji)])
+            if role is None:
+                return
+
             user = guild.get_member(payload.user_id)
             await user.remove_roles(role)
         except discord.errors.Forbidden:
@@ -251,6 +258,9 @@ async def addRoles(context, emote = None, role_name = None):
     # Change this to add to database instead:
     emoji_roles[emote] = role_name
 
+    for key, emoji in emoji_roles.items():
+        await context.send(f'{key} and {emoji}')
+
 # Dynamically remove emotes from role selection on per server base.
 @client.command()
 async def removeRoles(context, emote = None, role_name = None):
@@ -258,6 +268,9 @@ async def removeRoles(context, emote = None, role_name = None):
         return
 
     del emoji_roles[emote]
+
+    for key, emoji in emoji_roles.items():
+        await context.send(f'{key} and {emoji}')
 
 # Deletes users most recent messages, sleeps to avoid rate limit.
 @client.command(help=dd_help)

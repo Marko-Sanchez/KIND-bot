@@ -12,8 +12,8 @@ Objectives
 - [x] Implement emote reaction role setting.
 - [x] Dynamic behavior on bot joining a new server.
 - [x] Add level system.
-- [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
-- [ ] Add more bot commands alongside command permissions.
 - [x] Implement DataBase to save user information.
+- [ ] Dynamic role reactions on a per server basis.
+- [ ] Add more bot commands alongside command permissions.
+- [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
 - [ ] Connect to World Of Tanks API.
-- [ ] Display information using Graphs, etc.
