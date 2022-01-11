@@ -243,6 +243,22 @@ async def roles(context):
 
     await roleEmbed(roles_channel)
 
+# Dynamically add emotes onto role selection on per server base.
+@client.command()
+async def addRoles(context, emote = None, role_name = None):
+    if emote is None or role_name is None:
+        return
+    # Change this to add to database instead:
+    emoji_roles[emote] = role_name
+
+# Dynamically remove emotes from role selection on per server base.
+@client.command()
+async def removeRoles(context, emote = None, role_name = None):
+    if emote is None or role_name is None:
+        return
+
+    del emoji_roles[emote]
+
 # Deletes users most recent messages, sleeps to avoid rate limit.
 @client.command(help=dd_help)
 async def dd(context, amount:int = 3):
