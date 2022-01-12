@@ -13,7 +13,8 @@ Objectives
 - [x] Dynamic behavior on bot joining a new server.
 - [x] Add level system.
 - [x] Implement DataBase to save user information.
-- [ ] Dynamic role reactions on a per server basis.
+- [x] Dynamic role reactions on a per server basis.
+- [ ] Improve bot-user interactions.
 - [ ] Add more bot commands alongside command permissions.
 - [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
 - [ ] Connect to World Of Tanks API.
