@@ -21,13 +21,6 @@ tip_of_the_day = ['smh my head',
 def reply():
     return random.choice(tip_of_the_day)
 
-# Used to set roles via reactions.
-emoji_roles = {
-    "\U0001F396":'Gamer',
-    "\U0001F3C6":'Tournaments',
-    "\U0001F4DA":'Student'
-}
-
 def reaction_permission(reaction):
     return f'I am un-able to assign/remove \'{reaction}\' role\n please remeber to set my role higher then the roles you wish me to assign. Under Server settings -> Roles'
 

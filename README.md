@@ -17,3 +17,9 @@ Objectives
 - [ ] Add more bot commands alongside command permissions.
 - [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
 - [ ] Connect to World Of Tanks API.
+----
+
+"*From the moment I understood the weakness of my flesh, it disgusted me.
+I craved the strength and certainty of steel.
+I aspired to the purity of the blessed machine.*"
+ -Kind-Bot
