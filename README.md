@@ -7,6 +7,7 @@ Features
 - Chat interactions.
 - Role setting via reactions.
 - Level system based on user chat participation.
+
 Objectives
 ----
 - [x] Implement emote reaction role setting.

@@ -263,7 +263,7 @@ async def roles(context):
     await roleEmbed(context.guild.id, roles_channel)
 
 # Dynamically add emotes onto role selection on per server base:
-@client.command()
+@client.command(help=addRolesH)
 async def addRoles(context, emote = None, role_name = None):
     if emote is None or role_name is None:
         return
@@ -278,7 +278,7 @@ async def addRoles(context, emote = None, role_name = None):
         db.servers.update_one(query, {"$set":{field:role_name}})
 
 # Dynamically remove emotes from role selection on per server base.
-@client.command()
+@client.command(help=removeRolesH)
 async def removeRoles(context, emote = None):
     if emote is None:
         return
@@ -293,63 +293,12 @@ async def removeRoles(context, emote = None):
         db.servers.update_one(query, {"$unset":{field:""}})
 
 # List all the roles for the current server:
-@client.command()
+@client.command(help=listRolesH)
 async def listRoles(context):
     query = {"_id":context.guild.id}
 
     emoji_rolez = db.servers.find_one(query)
     for x, y in emoji_rolez["emojis"].items():
         await context.send(f'{x} and {y}')
-
-
-# Deletes users most recent messages, sleeps to avoid rate limit.
-@client.command(help=dd_help)
-async def dd(context, amount:int = 3):
-    if amount == 0 or amount > 20:
-        return
-    deleted = 0
-    async for message in context.channel.history(limit=50):
-        if message.author == context.message.author:
-            deleted +=1
-            await asyncio.sleep(0.5)
-            await message.delete()
-        if deleted > amount:
-            return
-
-@dd.error
-async def dd_error(context, error):
-    if isinstance(error, commands.BadArgument):
-        await context.send('Make sure to pass in a integer example: !dd 2')
-
-# Administrative command takes in optional arguements
-# amount: of messages to delete, member: members message to delete.
-@client.command(help=dD_help)
-@commands.has_permissions(administrator=True)
-async def DD(context, amount: int = 3, member: discord.Member = None):
-    if member is None:
-        await context.channel.purge(limit = amount + 1)
-    else:
-        if member is None:
-            await context.channel.send(f'User {member} does not exist in this server', delete_after=30.0)
-            return
-
-        if amount == 0 or amount > 20:
-            return
-        deleted = 0
-        async for message in context.channel.history(limit=50):
-            if member == message.author:
-                deleted += 1
-                await asyncio.sleep(0.5)
-                await message.delete()
-            if deleted >= amount:
-                return
-
-@DD.error
-async def DD_error(context, error):
-    if isinstance(error, commands.BadArgument):
-        await context.send('Make sure to pass in a integer example: !DD 2 or !DD 4 @USER')
-    elif isinstance(error, commands.MissingPermissions):
-        # DO nothing for now:
-        return
 
 client.run(API_TOKEN)
