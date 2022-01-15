@@ -146,24 +146,27 @@ async def on_message(message):
 
 @client.event
 async def add_experience(message):
-    author_id = str(message.author.id)
-    g_id = message.author.guild.name
-    query = {g_id:author_id}
+    author_id = message.author.id
+    g_id = str(message.author.guild.id)
+    query = {"_id":author_id, g_id: {"$exists":True}}
+    projection = {g_id: 1}
 
-    stats = db.levels.find_one(query)
+    stats = db.levels.find_one(query, projection)
     if stats is None:
-        newuser = {g_id:author_id,"user_info":{"exp":5,"level":1}}
-        db.levels.insert_one(newuser)
+        newField = {"$set": {g_id:{"user_info":{"exp":5, "level":1}}}}
+        db.levels.update_one({"_id":author_id}, newField, upsert= True)
     else:
-        exp = stats["user_info"]["exp"] + 5
-        initial_level = stats["user_info"]["level"]
+        exp = stats[g_id]["user_info"]["exp"] + 5
+        initial_level = stats[g_id]["user_info"]["level"]
         new_level = int(exp ** (1/4))
 
-        db.levels.update_one(query, {"$inc":{"user_info.exp":5}})
+        expPath = g_id + ".user_info.exp"
+        db.levels.update_one(query, {"$inc":{expPath:5}})
 
         if initial_level < new_level:
              await message.channel.send(f'{message.author} has leveled up to level {new_level}')
-             db.levels.update_one(query, {"$set":{"user_info.level":new_level}})
+             levelPath = g_id + ".user_info.level"
+             db.levels.update_one(query, {"$inc":{levelPath:1}})
 
 @client.event
 async def on_member_join(member):
