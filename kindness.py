@@ -141,7 +141,7 @@ async def on_message(message):
     elif client.user in message.mentions:
         await message.channel.send(reply())
 
-    # User level up:
+   # User level up:
     await add_experience(message)
 
 @client.event
@@ -168,26 +168,6 @@ async def add_experience(message):
              levelPath = g_id + ".user_info.level"
              db.levels.update_one(query, {"$inc":{levelPath:1}})
 
-@client.event
-async def on_member_join(member):
-
-    channel = discord.utils.get(member.guild.text_channels, name='welcome')
-    if channel is None:
-        return
-
-    await channel.send(f'{member} {welcome()}')
-
-@client.event
-async def on_member_remove(member):
-    channel = discord.utils.get(member.guild.text_channels, name='welcome')
-
-    if member == client.user:
-        return
-    elif channel is None:
-        return
-    # Instead of saying a goodbye message maybe delete there welcome from the welcome channel
-    await channel.send(f'{member} imagine leaving lmao, bye <:nail_care:886811404626165861>')
-
 # Listens for reaction in #roles channel.
 @client.event
 async def on_raw_reaction_add(payload):
@@ -196,7 +176,7 @@ async def on_raw_reaction_add(payload):
     roles_channel = discord.utils.get(payload.member.guild.text_channels, name='roles')
 
     if payload.member.bot:
-        # If bot removes a reaction ignore.
+        # If bot adds a reaction ignore.
         return
     elif roles_channel is None:
         return
