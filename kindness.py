@@ -17,10 +17,23 @@ MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
 cluster = pymongo.MongoClient(MONGO_TOKEN)
 db = cluster.discord
 
+# Grab server custom command prefix:
+def getPrefix(client, message):
+    query = {"_id": message.guild.id}
+    server_settings = db.servers.find_one(query)
+
+    if "CommandPrefix" in server_settings:
+        return server_settings["CommandPrefix"]
+    else:
+        # If guild not in database or field does not exist, create it:
+        newField = {"$set": {"_id":message.guild.id,"CommandPrefix":'!'}}
+        db.servers.update_one(query, newField, upsert=True)
+        return '!'
+
 logging.basicConfig(level=logging.INFO)
 intents = discord.Intents.all()
 discord.member = True
-client = commands.Bot(command_prefix = '!', help_command=None, intents = intents)
+client = commands.Bot(command_prefix = getPrefix, help_command=None, intents = intents)
 client.remove_command('help')
 
 # Load Cogs:
@@ -283,5 +296,23 @@ async def listRoles(context):
     emoji_rolez = db.servers.find_one(query)
     for x, y in emoji_rolez["emojis"].items():
         await context.send(f'{x} and {y}')
+
+# Set server custom prefix:
+@client.command()
+@commands.guild_only()
+async def setprefix(context, prefix = None):
+    if prefix is None:
+        return
+    elif len(prefix) > 1 or prefix.isalpha():
+        await context.channel.send(f'Prefix must be one character long and not a-z,A-Z')
+
+    query = {"_id":context.guild.id}
+
+    server_settings = db.servers.find_one(query)
+    if server_settings is not None:
+        # Update prefix:
+        db.servers.update_one(query, {"$set": {"CommandPrefix":prefix}}, upsert=True)
+        await context.channel.send(f'Prefix Updated to {prefix}')
+
 
 client.run(API_TOKEN)
