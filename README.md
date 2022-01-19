@@ -17,7 +17,7 @@ Objectives
 - [x] Dynamic role reactions on a per server basis.
 - [x] Increase Query performance.
 - [ ] Improve bot-user interactions.
-- [ ] Add more bot commands alongside command permissions.
+- [x] Add more bot commands alongside command permissions.
 - [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
 - [ ] Connect to World Of Tanks API.
 ----
