@@ -32,7 +32,6 @@ def getPrefix(client, message):
 
 logging.basicConfig(level=logging.INFO)
 intents = discord.Intents.all()
-discord.member = True
 client = commands.Bot(command_prefix = getPrefix, help_command=None, intents = intents)
 client.remove_command('help')
 
@@ -298,8 +297,8 @@ async def listRoles(context):
         await context.send(f'{x} and {y}')
 
 # Set server custom prefix:
-@client.command()
-@commands.guild_only()
+@client.command(help="Set custom prefix for server")
+@commands.has_permissions(administrator=True)
 async def setprefix(context, prefix = None):
     if prefix is None:
         return

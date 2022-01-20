@@ -1,5 +1,6 @@
 import discord
 import os
+import asyncio
 from discord.ext import commands
 
 class DeletionCommands(commands.Cog):
@@ -16,12 +17,15 @@ class DeletionCommands(commands.Cog):
     async def dd(self, context, amount:int = 3):
         if amount == 0 or amount > 20:
             return
+
         deleted = 0
-        async for message in context.channel.history(limit=50):
-            if message.author == context.message.author:
+        # Search channel history an delete user messages up to 'amount':
+        async for msg in context.channel.history(limit=50):
+            if msg.author == context.author:
                 deleted +=1
                 await asyncio.sleep(0.5)
-                await message.delete()
+                await msg.delete()
+
             if deleted > amount:
                 return
 
@@ -34,13 +38,16 @@ class DeletionCommands(commands.Cog):
         else:
             if amount == 0 or amount > 20:
                 return
+
             deleted = 0
-            async for message in context.channel.history(limit=50):
-                if member == message.author:
+            # Search channel history an delete members messages up to 'amount':
+            async for msg in context.channel.history(limit=50):
+                if member == msg.author:
                     deleted += 1
                     await asyncio.sleep(0.5)
-                    await message.delete()
-                if deleted >= amount:
+                    await msg.delete()
+
+                if deleted > amount:
                     return
     @dd.error
     async def dd_error(self, context, error):
