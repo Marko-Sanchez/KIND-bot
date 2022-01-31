@@ -3,12 +3,12 @@ import logging
 import os
 import re
 import asyncio
+import pymongo
 
+from functions import *
 from discord.ext import commands
 from os.path import exists
 from dotenv import load_dotenv
-from functions import *
-import pymongo
 from pymongo import MongoClient
 
 API_TOKEN = os.environ.get('API_TOKEN')
@@ -49,8 +49,11 @@ async def roleEmbed(_guildID, roles_channel):
     )
 
     # Grab role from database:
-    query = {"_id":_guildID}
-    emoji_rolez =  db.servers.find_one(query)
+    emoji_rolez =  db.servers.find_one({"_id":_guildID})
+    if emoji_rolez is None or emoji_rolez["emojis"] is None:
+        # No roles currently in server:
+        await context.channel.send("No roles curently in server, to add roles use !addRoles\n For more information use !help", delete_after=30)
+        return
 
     embed.set_image(url = client.user.avatar_url)
     for reaction, name in emoji_rolez["emojis"].items():
@@ -258,41 +261,49 @@ async def roles(context):
     await roleEmbed(context.guild.id, roles_channel)
 
 # Dynamically add emotes onto role selection on per server base:
+# arguements: {emote} {role_name}
 @client.command(help=addRolesH)
 async def addRoles(context, emote = None, role_name = None):
     if emote is None or role_name is None:
         return
 
-    query = {"_id":context.guild.id}
-    emoji_rolez = db.servers.find_one(query)
-    if emoji_rolez is None:
+    # Query Database:
+    emoji_rolez = db.servers.find_one({"_id":context.guild.id})
+
+    # If server or "emojis" field not in database, create it:
+    if emoji_rolez is None or "emojis" not in emoji_rolez:
         emoji_rolez = {"_id":context.guild.id, "emojis":{emote:role_name}}
         db.servers.insert_one(emoji_rolez)
     else:
         field = "emojis." + emote
-        db.servers.update_one(query, {"$set":{field:role_name}})
+        db.servers.update_one({"_id":context.guild.id}, {"$set":{field:role_name}})
 
 # Dynamically remove emotes from role selection on per server base.
+# arguements: {emote} associated with role to be removed
 @client.command(help=removeRolesH)
 async def removeRoles(context, emote = None):
     if emote is None:
         return
 
-    query = {"_id":context.guild.id}
-    emoji_rolez = db.servers.find_one(query)
-    if emoji_rolez is None:
-        #User has not added roles to server:
-            return
+    emoji_rolez = db.servers.find_one({"_id":context.guild.id})
+    if emoji_rolez is None or "emojis" not in emoji_rolez:
+        await context.channel.send("Roles list is empty, to add roles use !addRoles\n For more information use !help", delete_after=30)
+        return
     else:
         field = "emojis." + emote
-        db.servers.update_one(query, {"$unset":{field:""}})
+        db.servers.update_one({"_id":context.guild.id}, {"$unset":{field:""}})
+        await context.send(f'Removed {emoji_rolez["emojis"][emote]} role')
 
 # List all the roles for the current server:
 @client.command(help=listRolesH)
 async def listRoles(context):
-    query = {"_id":context.guild.id}
+    emoji_rolez = db.servers.find_one({"_id":context.guild.id})
 
-    emoji_rolez = db.servers.find_one(query)
+    # Server prefences not in database or emojis don't exist:
+    if emoji_rolez is None or "emojis" not in emoji_rolez or len(emoji_rolez["emojis"]) == 0:
+        await context.channel.send("Roles list is empty, to add roles use !addRoles\nFor more information use !help", delete_after=30)
+        return
+
     for x, y in emoji_rolez["emojis"].items():
         await context.send(f'{x} and {y}')
 
