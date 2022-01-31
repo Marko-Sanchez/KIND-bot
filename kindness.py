@@ -19,15 +19,27 @@ db = cluster.discord
 
 # Grab server custom command prefix:
 def getPrefix(client, message):
-    query = {"_id": message.guild.id}
-    server_settings = db.servers.find_one(query)
+    gid = message.guild.id
+    sgid = str(gid)
 
-    if "CommandPrefix" in server_settings:
+    # Check if server prefix is in Cache:
+    if prefixExist(sgid):
+        return grabPrefix(sgid)
+
+    # Query Database:
+    server_settings = db.servers.find_one({"_id": gid})
+
+    if server_settings is not None and "CommandPrefix" in server_settings:
+        # Update Cache prefix:
+        addPrefix(sgid, server_settings["CommandPrefix"])
         return server_settings["CommandPrefix"]
     else:
         # If guild not in database or field does not exist, create it:
-        newField = {"$set": {"_id":message.guild.id,"CommandPrefix":'!'}}
-        db.servers.update_one(query, newField, upsert=True)
+        newField = {"$set": {"_id":gid,"CommandPrefix":'!'}}
+        db.servers.update_one({"_id": gid}, newField, upsert=True)
+
+        # Add to Cache:
+        addPrefix(sgid, '!')
         return '!'
 
 logging.basicConfig(level=logging.INFO)
@@ -307,22 +319,25 @@ async def listRoles(context):
     for x, y in emoji_rolez["emojis"].items():
         await context.send(f'{x} and {y}')
 
-# Set server custom prefix:
-@client.command(help="Set custom prefix for server")
+# Set server custom prefix, that corresponds to command calls:
 @commands.has_permissions(administrator=True)
-async def setprefix(context, prefix = None):
+@client.command(help="Set custom command caller/prefix for server")
+async def setPrefix(context, prefix = None):
     if prefix is None:
         return
-    elif len(prefix) > 1 or prefix.isalpha():
+    elif len(prefix) > 1 or prefix.isalpha() or prefix.isdigit():
         await context.channel.send(f'Prefix must be one character long and not a-z,A-Z')
+        return
 
-    query = {"_id":context.guild.id}
+    # Query Database:
+    server_settings = db.servers.find_one({"_id":context.guild.id})
 
-    server_settings = db.servers.find_one(query)
     if server_settings is not None:
         # Update prefix:
-        db.servers.update_one(query, {"$set": {"CommandPrefix":prefix}}, upsert=True)
+        db.servers.update_one({"_id":context.guild.id}, {"$set": {"CommandPrefix":prefix}}, upsert=True)
         await context.channel.send(f'Prefix Updated to {prefix}')
 
+    # Add prefix to Cache:
+    addPrefix(str(context.guild.id), prefix)
 
 client.run(API_TOKEN)
