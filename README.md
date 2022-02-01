@@ -7,6 +7,7 @@ Features
 - Chat interactions.
 - Role setting via reactions.
 - Level system based on user chat participation.
+- Custom server experience.
 
 Objectives
 ----
@@ -16,7 +17,7 @@ Objectives
 - [x] Implement DataBase to save user information.
 - [x] Dynamic role reactions on a per server basis.
 - [x] Increase Query performance.
-- [ ] Improve bot-user interactions.
+- [x] Caching for increase command calls performance.
 - [x] Add more bot commands alongside command permissions.
 - [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
 - [ ] Connect to World Of Tanks API.

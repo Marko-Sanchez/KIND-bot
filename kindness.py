@@ -53,6 +53,9 @@ for filename in os.listdir('./cogs'):
         client.load_extension(f'cogs.{filename[:-3]}')
 
 
+# Creates an embed message and sends it to 'roles' channel:
+# adds server custom emoji reactions.
+# If emoji is invalid: alerts caller
 async def roleEmbed(_guildID, roles_channel):
 
     embed = discord.Embed(
@@ -64,7 +67,7 @@ async def roleEmbed(_guildID, roles_channel):
     emoji_rolez =  db.servers.find_one({"_id":_guildID})
     if emoji_rolez is None or emoji_rolez["emojis"] is None:
         # No roles currently in server:
-        await context.channel.send("No roles curently in server, to add roles use !addRoles\n For more information use !help", delete_after=30)
+        await context.channel.send("No roles curently in server, to add roles use addRoles\n For more information use help", delete_after=30)
         return
 
     embed.set_image(url = client.user.avatar_url)
@@ -74,13 +77,24 @@ async def roleEmbed(_guildID, roles_channel):
     # Send embed message
     message = await roles_channel.send(embed=embed)
 
-    # Change to add server specific emotes:
+    # Adds reactions to embed message:
+    invalidEmojis = {}
     for reaction, name in emoji_rolez["emojis"].items():
-        await message.add_reaction(reaction)
+        try:
+            await message.add_reaction(reaction)
+        except discord.errors.HTTPException:
+            invalidEmojis[reaction] = name
+
+    # If user passed in invalid emojis, alert them:
+    if len(invalidEmojis) != 0:
+        msg = ""
+        for key, name in invalidEmojis.items():
+            msg += f'{key} is an invalid emoji make sure to remove it using, removeRoles command\n'
+        await roles_channel.send(msg)
 
 
 # When bot joins a new server it checks if #Welcome and #roles channels are created
-# if not it creates them.
+# if not, prompts Admin if they wish to add them.
 @client.event
 async def on_guild_join(guild):
     admin = guild.owner
@@ -171,6 +185,8 @@ async def on_message(message):
    # User level up:
     await add_experience(message)
 
+# Called from on_message(), adds experience and levels up user.
+# On level up alerts user.
 @client.event
 async def add_experience(message):
     author_id = message.author.id
@@ -195,7 +211,8 @@ async def add_experience(message):
              levelPath = g_id + ".user_info.level"
              db.levels.update_one(query, {"$inc":{levelPath:1}})
 
-# Listens for reaction in #roles channel.
+# Listens for reactions in #roles channel, on user reaction
+# assigns them role privileges associated with reaction.
 @client.event
 async def on_raw_reaction_add(payload):
     if payload.member is None:
@@ -229,6 +246,8 @@ async def on_raw_reaction_add(payload):
             admin = guild.owner
             await admin.send(reaction_permission(emoji_rolez["emojis"][str(payload.emoji)]), delete_after = 60)
 
+# Listens for reactionsin #roles channel, on reaction removes users
+# role / privileges associated with reaction.
 @client.event
 async def on_raw_reaction_remove(payload):
 
@@ -245,9 +264,10 @@ async def on_raw_reaction_remove(payload):
     else:
         try:
 
-            # Grab role from database:
-            query = {"_id":payload.guild_id}
-            emoji_rolez =  db.servers.find_one(query)
+            # Grab role from database and checks whether field exist:
+            emoji_rolez =  db.servers.find_one({"_id":payload.guild_id})
+            if emoji_rolez is None or "emojis" not in emoji_rolez:
+                return
 
             # Remove role from user
             role = discord.utils.get(guild.roles, name=emoji_rolez["emojis"][str(payload.emoji)])
