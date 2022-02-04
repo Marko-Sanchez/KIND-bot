@@ -1,5 +1,4 @@
 import discord
-import os
 from functions import welcome
 from discord.ext import commands
 

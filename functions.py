@@ -13,9 +13,9 @@ welcome_dict = ['Hey! Welcome',
 def welcome():
     return random.choice(welcome_dict)
 
-tip_of_the_day = ['smh my head',
+tip_of_the_day = ['ahh mustard',
                   '!help for a list of commands',
-                  'Chose your role in the \#roles channel',
+                  'Chose your role in the #roles channel',
                   'At your service']
 def reply():
     return random.choice(tip_of_the_day)
@@ -25,9 +25,9 @@ def reaction_permission(reaction):
 
 # Command information.
 roles_help = "Let members self assign roles via reaction, creates message in #roles"
-addRolesH = "Add new role to embed message in #role:\n !addRoles (emote) (roleName)"
-removeRolesH = "Removes role from embed message in #role:\n !removeRoles (emote)"
-listRolesH = "List all roles"
+addRolesH = "Add new role to embed message in #role:\n addRoles (emote) (roleName)"
+removeRolesH = "Removes role from embed message in #role:\n removeRoles (emote)"
+listRolesH = "List all roles in server"
 
 """
     Cache implementation to limit api calls to mongoDB server involving command prefix
@@ -36,27 +36,29 @@ listRolesH = "List all roles"
 prefixCache = {}
 
 # Checks if server prefix exst in cache:
-def prefixExist(guildID):
+def prefixExist(guildID:str):
     global prefixCache
     if guildID in prefixCache:
         return True
     return False
 
 # Get  prefix for specifed server:
-def grabPrefix(guildID):
+def grabPrefix(guildID:str):
     global prefixCache
+    if guildID not in prefixCache:
+        return None
     pre = prefixCache[guildID]
     pload()
     return pre
 
 # Adds prefix onto cache for fast retrieval:
-def addPrefix(guildID, prefix):
+def addPrefix(guildID:str, prefix:str):
     global prefixCache
     pload()
     prefixCache[guildID] = prefix
 
-# Resets Cache once a certain amount of calls havev been made:
-# A load counts as retrieiving a prefix or adding a prefix to the cache.
+# Resets Cache once a certain amount of calls have been made:
+# Load count as retrieiving a prefix or adding a prefix to the cache.
 def pload():
     global prefixCache
     if "Loads" not in prefixCache:

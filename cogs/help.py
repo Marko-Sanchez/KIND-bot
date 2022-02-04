@@ -1,5 +1,4 @@
 import discord
-import os
 from discord.ext import commands
 
 class HelpCommand(commands.Cog):
@@ -23,6 +22,12 @@ class HelpCommand(commands.Cog):
                     value=command.help,
                     inline=False
                 )
+            # Show the current server prefix:
+            embed.add_field(
+                name="Server Prefix",
+                value=context.prefix,
+                inline=False
+            )
         elif command_name in commandsList:
             embed.add_field(
                 name=command_name,

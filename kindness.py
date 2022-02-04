@@ -7,8 +7,6 @@ import pymongo
 
 from functions import *
 from discord.ext import commands
-from os.path import exists
-from dotenv import load_dotenv
 from pymongo import MongoClient
 
 API_TOKEN = os.environ.get('API_TOKEN')
@@ -18,7 +16,7 @@ cluster = pymongo.MongoClient(MONGO_TOKEN)
 db = cluster.discord
 
 # Grab server custom command prefix:
-def getPrefix(client, message):
+def getPrefix(_, message):
     gid = message.guild.id
     sgid = str(gid)
 
@@ -67,7 +65,7 @@ async def roleEmbed(_guildID, roles_channel):
     emoji_rolez =  db.servers.find_one({"_id":_guildID})
     if emoji_rolez is None or emoji_rolez["emojis"] is None:
         # No roles currently in server:
-        await context.channel.send("No roles curently in server, to add roles use addRoles\n For more information use help", delete_after=30)
+        await roles_channel.send("No roles curently in server, to add roles use addRoles\n For more information use help", delete_after=30)
         return
 
     embed.set_image(url = client.user.avatar_url)
@@ -100,7 +98,7 @@ async def on_guild_join(guild):
     admin = guild.owner
     ask_welcome = ask_roleSetting = False
     total_request = 0
-    reactions = ["\u2705", "\u274C"]
+    reactions = ["\u2705", "\u274C"] # Green check, Red X
 
     channel = discord.utils.get(guild.text_channels, name='welcome')
     if channel is None:
@@ -139,8 +137,9 @@ async def on_guild_join(guild):
 
     def check(reaction, user):
         return str(reaction.emoji) in reactions and user.id == admin.id
-    # Wait for user
-    for request in range(total_request):
+
+    # Wait for user to react to one of the messages:
+    for _ in range(total_request):
         try:
             reaction, user = await client.wait_for('reaction_add', check=check, timeout= 60.0)
             channelName = reaction.message.embeds[0].fields[0].name
@@ -160,13 +159,16 @@ async def on_guild_join(guild):
                 if channelName.strip('#') == 'roles':
                     await roleEmbed(guild.id, created_channel)
             else:
-                print(f'Admin declined to add {channelName}')
+                # Notify admin that the channel was not created:
+                await user.send(f'{channelName} was not created')
             await reaction.message.delete()
         except asyncio.TimeoutError:
-            print('Admin declined to React')
-            await reaction.message.delete()
+            # Admin did not react within the allocated time:
             break
 
+# On message set in any channel:
+# If command, executes command and returns.
+# else, looks for keywords, replies, and gives user experience.
 @client.event
 async def on_message(message):
 
@@ -176,11 +178,15 @@ async def on_message(message):
         await client.process_commands(message) # Wait for command to be executed.
         return
 
-    hello_regex = re.compile('^[hH]ello!?|^[hH]i!?|[hH]ey')
-    if hello_regex.match(message.content):
-        await message.channel.send(greetings())
-    elif client.user in message.mentions:
-        await message.channel.send(reply())
+    if random.randint(1,10) % 3 == 0:
+        hello_regex = re.compile('^[hH]ello!?|^[hH]i!?|[hH]ey')
+        smh_regex = re.compile('smh')
+        if hello_regex.match(message.content):
+            await message.channel.send(greetings())
+        elif smh_regex.match(message.content):
+            await message.channel.send(f'{message.author.mention} smh my head')
+        elif client.user in message.mentions:
+            await message.channel.send(reply())
 
    # User level up:
     await add_experience(message)
@@ -228,13 +234,17 @@ async def on_raw_reaction_add(payload):
         # If we are not in roles channel ignore.
         return
     else:
-        try:
-            # Grab role from database:
-            query = {"_id":payload.guild_id}
-            emoji_rolez =  db.servers.find_one(query)
+        # Grab role from database and checks whether field exist:
+        emoji_rolez =  db.servers.find_one({"_id":payload.guild_id})
+        if emoji_rolez is None or "emojis" not in emoji_rolez:
+            return
 
+        # Get guild:
+        guild = client.get_guild(payload.guild_id)
+        if guild is None:
+            return
+        try:
             # Add role to user
-            guild = client.get_guild(payload.guild_id)
             role = discord.utils.get(guild.roles, name=emoji_rolez["emojis"][str(payload.emoji)])
 
             if role is None:
@@ -253,22 +263,23 @@ async def on_raw_reaction_remove(payload):
 
     # Payload.member does not exist(in remove), thus different method to get channel.
     guild = client.get_guild(payload.guild_id)
+    if guild is None:
+        return
     roles_channel = discord.utils.get(guild.text_channels, name='roles')
 
     if payload.user_id == client.user.id:
         # If bot removes a reaction ignore.
         return
-    elif payload.channel_id != roles_channel.id:
+    elif roles_channel is None or payload.channel_id != roles_channel.id:
         # If we are not in roles channel ignore.
         return
     else:
+        # Grab role from database and checks whether field exist:
+        emoji_rolez =  db.servers.find_one({"_id":payload.guild_id})
+        if emoji_rolez is None or "emojis" not in emoji_rolez:
+            return
+
         try:
-
-            # Grab role from database and checks whether field exist:
-            emoji_rolez =  db.servers.find_one({"_id":payload.guild_id})
-            if emoji_rolez is None or "emojis" not in emoji_rolez:
-                return
-
             # Remove role from user
             role = discord.utils.get(guild.roles, name=emoji_rolez["emojis"][str(payload.emoji)])
             if role is None:
@@ -282,6 +293,7 @@ async def on_raw_reaction_remove(payload):
             await admin.send(reaction_permission(emoji_rolez["emojis"][str(payload.emoji)]), delete_after = 60)
 
 # Sends a embed message to roles channel, with user roles:
+@commands.has_permissions(administrator=True)
 @client.command(help=roles_help)
 async def roles(context):
     # Get roles channel.
@@ -294,6 +306,7 @@ async def roles(context):
 
 # Dynamically add emotes onto role selection on per server base:
 # arguements: {emote} {role_name}
+@commands.has_permissions(administrator=True)
 @client.command(help=addRolesH)
 async def addRoles(context, emote = None, role_name = None):
     if emote is None or role_name is None:
@@ -310,8 +323,11 @@ async def addRoles(context, emote = None, role_name = None):
         field = "emojis." + emote
         db.servers.update_one({"_id":context.guild.id}, {"$set":{field:role_name}})
 
+    await context.channel.send(f'Added {emote} with role {role_name}')
+
 # Dynamically remove emotes from role selection on per server base.
 # arguements: {emote} associated with role to be removed
+@commands.has_permissions(administrator=True)
 @client.command(help=removeRolesH)
 async def removeRoles(context, emote = None):
     if emote is None:

@@ -1,12 +1,11 @@
 import discord
-import os
 import asyncio
 from discord.ext import commands
 
 class DeletionCommands(commands.Cog):
 
-    helpd = "Deletes callers message takes a amount, default value (3):\n !dd (number)"
-    helpD = "Command deletes specified or non-specified users messages in a channel:\n !DD (number) or !DD (number) @user"
+    helpd = "Deletes callers message takes a amount, default value (3):\n dd (number)"
+    helpD = "Command deletes specified or non-specified users messages in a channel:\n DD (number) or DD (number) @user"
 
 
     def __init__(self, bot: commands.Bot):
