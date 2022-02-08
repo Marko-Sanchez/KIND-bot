@@ -14,7 +14,7 @@ def welcome():
     return random.choice(welcome_dict)
 
 tip_of_the_day = ['ahh mustard',
-                  '!help for a list of commands',
+                  'use help command for a list of commands',
                   'Chose your role in the #roles channel',
                   'At your service']
 def reply():

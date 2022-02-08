@@ -63,7 +63,7 @@ async def roleEmbed(_guildID, roles_channel):
 
     # Grab role from database:
     emoji_rolez =  db.servers.find_one({"_id":_guildID})
-    if emoji_rolez is None or emoji_rolez["emojis"] is None:
+    if emoji_rolez is None or "emojis" not in emoji_rolez:
         # No roles currently in server:
         await roles_channel.send("No roles curently in server, to add roles use addRoles\n For more information use help", delete_after=30)
         return
@@ -166,7 +166,9 @@ async def on_guild_join(guild):
             # Admin did not react within the allocated time:
             break
 
-# On message set in any channel:
+    await admin.send("For a list of Commands type `!help` in server")
+
+# Listens for messages:
 # If command, executes command and returns.
 # else, looks for keywords, replies, and gives user experience.
 @client.event
@@ -182,11 +184,11 @@ async def on_message(message):
         hello_regex = re.compile('^[hH]ello!?|^[hH]i!?|[hH]ey')
         smh_regex = re.compile('smh')
         if hello_regex.match(message.content):
-            await message.channel.send(greetings())
+            await message.reply(greetings())
         elif smh_regex.match(message.content):
             await message.channel.send(f'{message.author.mention} smh my head')
         elif client.user in message.mentions:
-            await message.channel.send(reply())
+            await message.reply(reply())
 
    # User level up:
     await add_experience(message)
@@ -293,7 +295,7 @@ async def on_raw_reaction_remove(payload):
             await admin.send(reaction_permission(emoji_rolez["emojis"][str(payload.emoji)]), delete_after = 60)
 
 # Sends a embed message to roles channel, with user roles:
-@commands.has_permissions(administrator=True)
+# @commands.has_permissions(administrator=True)
 @client.command(help=roles_help)
 async def roles(context):
     # Get roles channel.
@@ -306,7 +308,7 @@ async def roles(context):
 
 # Dynamically add emotes onto role selection on per server base:
 # arguements: {emote} {role_name}
-@commands.has_permissions(administrator=True)
+@commands.has_permissions(manage_roles=True)
 @client.command(help=addRolesH)
 async def addRoles(context, emote = None, role_name = None):
     if emote is None or role_name is None:
@@ -317,17 +319,22 @@ async def addRoles(context, emote = None, role_name = None):
 
     # If server or "emojis" field not in database, create it:
     if emoji_rolez is None or "emojis" not in emoji_rolez:
-        emoji_rolez = {"_id":context.guild.id, "emojis":{emote:role_name}}
-        db.servers.insert_one(emoji_rolez)
+        emoji_rolez = {"CommnadPrefix":context.prefix, "emojis":{emote:role_name}}
+        db.servers.update_one({"_id":context.guild.id}, {"$set": emoji_rolez}, upsert=True)
     else:
         field = "emojis." + emote
         db.servers.update_one({"_id":context.guild.id}, {"$set":{field:role_name}})
 
     await context.channel.send(f'Added {emote} with role {role_name}')
 
+@addRoles.error
+async def addRoles_error(context, error):
+    if isinstance(error, commands.MissingPermissions):
+        await context.send("Sorry you don't have permission to use this Command, ask your administrator")
+
 # Dynamically remove emotes from role selection on per server base.
 # arguements: {emote} associated with role to be removed
-@commands.has_permissions(administrator=True)
+@commands.has_permissions(manage_roles=True)
 @client.command(help=removeRolesH)
 async def removeRoles(context, emote = None):
     if emote is None:
@@ -335,7 +342,7 @@ async def removeRoles(context, emote = None):
 
     emoji_rolez = db.servers.find_one({"_id":context.guild.id})
     if emoji_rolez is None or "emojis" not in emoji_rolez:
-        await context.channel.send("Roles list is empty, to add roles use !addRoles\n For more information use !help", delete_after=30)
+        await context.channel.send(f'Roles is empty, to add roles use {context.prefix}addRoles\n For more information use {context.prefix}help', delete_after=30)
         return
     else:
         field = "emojis." + emote
@@ -343,13 +350,14 @@ async def removeRoles(context, emote = None):
         await context.send(f'Removed {emoji_rolez["emojis"][emote]} role')
 
 # List all the roles for the current server:
+@commands.has_permissions(manage_roles=True)
 @client.command(help=listRolesH)
 async def listRoles(context):
     emoji_rolez = db.servers.find_one({"_id":context.guild.id})
 
     # Server prefences not in database or emojis don't exist:
     if emoji_rolez is None or "emojis" not in emoji_rolez or len(emoji_rolez["emojis"]) == 0:
-        await context.channel.send("Roles list is empty, to add roles use !addRoles\nFor more information use !help", delete_after=30)
+        await context.channel.send(f'Roles list is empty, to add roles use {context.prefix}addRoles\nFor more information use {context.prefix}help', delete_after=30)
         return
 
     for x, y in emoji_rolez["emojis"].items():
@@ -362,7 +370,7 @@ async def setPrefix(context, prefix = None):
     if prefix is None:
         return
     elif len(prefix) > 1 or prefix.isalpha() or prefix.isdigit():
-        await context.channel.send(f'Prefix must be one character long and not a-z,A-Z')
+        await context.channel.send(f'Prefix must be one character long and not a-z,A-Z,0-9')
         return
 
     # Query Database:
