@@ -7,6 +7,7 @@ Features
 - Chat interactions.
 - Role setting via reactions.
 - Level system based on user chat participation.
+- Displays users win-ratio for World of tanks Blitz.
 - Custom server experience.
 
 Objectives
@@ -20,7 +21,7 @@ Objectives
 - [x] Caching for increase command calls performance.
 - [x] Add more bot commands alongside command permissions.
 - [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
-- [ ] Connect to World Of Tanks API.
+- [x] Connect to World Of Tanks API.
 ----
 
 "*From the moment I understood the weakness of my flesh, it disgusted me.

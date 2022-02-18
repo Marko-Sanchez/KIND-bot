@@ -7,7 +7,6 @@ import pymongo
 
 from functions import *
 from discord.ext import commands
-from pymongo import MongoClient
 
 API_TOKEN = os.environ.get('API_TOKEN')
 MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
