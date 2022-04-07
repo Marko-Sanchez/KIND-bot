@@ -39,10 +39,17 @@ def getPrefix(_, message):
         addPrefix(sgid, '!')
         return '!'
 
+# Output logging to termial / stdout:
 logging.basicConfig(level=logging.INFO)
+
 intents = discord.Intents.all()
+
+# Set default bot actions, remove help command for custome made one:
 client = commands.Bot(command_prefix = getPrefix, help_command=None, intents = intents)
 client.remove_command('help')
+
+# Database connection for usage in cogs:
+client.DB = db
 
 # Load Cogs:
 for filename in os.listdir('./cogs'):
