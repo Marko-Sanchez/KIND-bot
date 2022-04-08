@@ -6,7 +6,7 @@ from discord.ext import tasks, commands
 from enum import Enum
 
 class Color(Enum):
-    white = 0xcad1c7
+    defualt = 0x2d4357
     lightGreen = 0x71ba47
     darkGreen = 0x318004
     blue = 0x146bb8
@@ -55,7 +55,14 @@ class WorldOfTanks(commands.Cog):
         self.userCache[author_id]["total_battles"] = userStats["statistics"]["all"]["battles"]
         self.userCache[author_id]["wins"] = userStats["statistics"]["all"]["wins"]
         self.userCache[author_id]["account_id"] = accountID
-        self.userCache[author_id]["datetime"] = datetime.utcnow().isoformat(' ','seconds')
+
+        # Pacific Standard Time for Los Angeles (UTC−07:00)
+        timezone_offset = -7.0
+        tzinfo = timezone(timedelta(hours=timezone_offset))
+        now = datetime.now(tzinfo)
+
+        # Set time of cached data, to local Los Angeles time:
+        self.userCache[author_id]["datetime"] = now.strftime("%b-%-d-%Y %-I:%M %p")
 
 
     """
@@ -121,7 +128,7 @@ class WorldOfTanks(commands.Cog):
         at 9am. Sleeps until 9am PST occurs.
     """
     @morningTask.before_loop
-    async def wait_until_9am():
+    async def wait_until_9am(self):
 
         timezone_offset = -7.0  # Pacific Standard Time for Los Angeles (UTC−07:00)
         tzinfo = timezone(timedelta(hours=timezone_offset))
@@ -156,7 +163,7 @@ class WorldOfTanks(commands.Cog):
 
         elif author_id in self.userCache:
 
-            await context.send(f'{self.userCache[author_id]["name"]} is already being watched')
+            await context.send(f'{self.userCache[author_id]["name"]} is already being recorded')
             return
 
         else:
@@ -169,7 +176,7 @@ class WorldOfTanks(commands.Cog):
 
                 # Add to cache:
                 self.userCache[author_id] = stored_stats["userstats"]
-                await context.send(f'cache has been reset {self.userCache[author_id]["name"]} is being watched')
+                await context.send(f'cache has been reset {self.userCache[author_id]["name"]} is being recorded')
                 return
 
         # Processing visual:
@@ -189,7 +196,7 @@ class WorldOfTanks(commands.Cog):
         stats = requests.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)).json()
         await self.cache(author_id, accountID, stats["data"][accountID])
 
-        await context.send(f'Account for {self.userCache[author_id]["name"]} has been added and now being watched')
+        await context.send(f'Account for {self.userCache[author_id]["name"]} has been added and now being recorded')
 
         query = {"_id":context.guild.id}
         toAdd = {"playerAccounts": [self.userCache[author_id]["name"], author_id] }
@@ -203,7 +210,7 @@ class WorldOfTanks(commands.Cog):
 
     """
         Calculates caller statistics, from the time the user added there account to the watch list
-        or if account has already been watched from morning PST time.
+        or if account has already been recorded from morning PST time.
     """
     @commands.command(help=stats_help)
     async def stats(self, context):
@@ -219,11 +226,11 @@ class WorldOfTanks(commands.Cog):
 
                 # Add to cache:
                 self.userCache[author_id] = stored_stats["userstats"]
-                await context.send(f'cache has been reset {self.userCache[author_id]["name"]} is being watched')
+                await context.send(f'cache has been reset {self.userCache[author_id]["name"]} is being recorded')
 
             else:
 
-                await context.send(f'User is not being watched, to begin watching use {context.prefix}iam command')
+                await context.send(f'User is not being recorded, to begin watching use {context.prefix}iam command')
                 await context.invoke(self.bot.get_command("help"),"iam")
                 return
 
@@ -249,7 +256,7 @@ class WorldOfTanks(commands.Cog):
 
         # Color code embed msg based on win-ratio:
         percent = float(daily_wr)
-        color = Color.white
+        color = Color.defualt
 
         if 50 <= percent < 55:
             color = Color.lightGreen
@@ -271,19 +278,26 @@ class WorldOfTanks(commands.Cog):
 
         embed.set_thumbnail(url=context.author.avatar_url)
 
-        time = datetime.fromtimestamp(stats["data"][accountID]["last_battle_time"])
-        embed.set_footer(text=f'from: {self.userCache[author_id]["datetime"]}  to: {time}')
+        embed.set_footer(text=f'Data cached at {self.userCache[author_id]["datetime"]}')
 
         embed.add_field(
             name = f'Overall win-ratio: {overall_wr}%',
-            value = f'Total battles: {self.userCache[author_id]["total_battles"]:,d}, before',
+            value = f'Total battles: {self.userCache[author_id]["total_battles"]:,d} before',
             inline=False
         )
 
         if percent != 0:
+
+            # recent battle time in los Angeles local time:
+            timezone_offset = -7.0
+            tzinfo = timezone(timedelta(hours=timezone_offset))
+
+            # Convert from timestamp to local time PST:
+            time = datetime.fromtimestamp(stats["data"][accountID]["last_battle_time"],tzinfo)
+
             embed.add_field(
                 name = f'Daily win-ratio: {daily_wr}%',
-                value = f'Total battles: {new_total_battles:,d}, after',
+                value = f'Total battles: {new_total_battles:,d} after\nlast battle time: {time.strftime("%b-%-d %-I:%M %p")}',
                 inline=False
             )
 
