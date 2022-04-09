@@ -1,5 +1,5 @@
-# KIND-BOT ![python](https://img.shields.io/badge/-python-green) ![Database](https://img.shields.io/badge/-MongoDB-blue)
-A python based bot deployed using heroku and mongodb, intially made for the [KIND] clan in World Of Tank Blitz.
+# KIND-BOT ![python](https://img.shields.io/badge/-python-green) ![Database](https://img.shields.io/badge/-MongoDB-blue) ![hosting](https://img.shields.io/badge/hosted-Heroku-blueviolet)
+A python based bot deployed using heroku and mongodb, initially made for the [KIND] clan in World of Tanks Blitz.
 
 Features
 --------
@@ -12,7 +12,7 @@ Features
 
 Objectives
 ----
-- [x] Implement emote reaction role setting.
+- [x] Implement self-assigned role setting via emote reaction.
 - [x] Dynamic behavior on bot joining a new server.
 - [x] Add level system.
 - [x] Implement DataBase to save user information.
@@ -20,8 +20,10 @@ Objectives
 - [x] Increase Query performance.
 - [x] Caching for increase command calls performance.
 - [x] Add more bot commands alongside command permissions.
-- [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
 - [x] Connect to World Of Tanks API.
+- [x] Pull players information from wotb API, and display their statistics.
+- [ ] Give users ability to change '#roles' or '#welcome' channel names.
+- [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
 ----
 
 "*From the moment I understood the weakness of my flesh, it disgusted me.
