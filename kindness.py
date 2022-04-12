@@ -18,8 +18,8 @@ db = pymongo.MongoClient(MONGO_TOKEN).discord
     If prefix is not cached it will query the database and cache it. Cache
     is reset after a certain amount of calls to it.
 
-    @params: _{ bot object} defualt value that needs to be passed in, contains info on bot / client.
-            message {discord.Message} object containing command call.
+    @params: _ { bot object } defualt value that needs to be passed in, contains info on bot / client.
+            message { discord.Message } object containing command call.
 """
 async def getPrefix(_, message):
 
@@ -75,7 +75,7 @@ for filename in os.listdir('./cogs'):
     Creates an embed message, with reactions associated with roles,
     then sends to #roles channel. Querys database for role names and emotes.
 
-    @params: guildID{ int } guild ID of server to send embed.
+    @params: guildID { int } guild ID of server to send embed.
             roles_channel {discord.TextChannel} channel where embed will be sent.
 
     @returns: A discord embed message with emote reactions associated with roles.
@@ -128,9 +128,9 @@ async def roleEmbed(_guildID, roleChannel):
 """
     When joining a new server admin will recieve a message prompting them to give the bot
     permission to create both '#welcome' and '#roles' channel if they do not already exist.
-    If permission is granted creates servers, else dosen't.
+    If permission is granted creates channels, else dosen't.
 
-    @params: guild{discord.Guild} object containing information of guild joined.
+    @params: guild {discord.Guild} object containing information of guild joined.
 
     @returns: Two embed messages for each channel whether they should be created or not.
 """

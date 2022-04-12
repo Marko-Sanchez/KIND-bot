@@ -70,22 +70,20 @@ class WorldOfTanks(commands.Cog):
     """
     async def reloadCache(self):
 
-        # Grab all servers with "playerAccounts" field:
-        projection = {"playerAccounts": 1}
-        servers = self.bot.DB.servers.find({"playerAccounts": { "$exists": True}}, projection)
+        # Grab playerlist from database:
+        playerlist = self.bot.DB.servers.find_one({"_id": "PlayerAccounts"})
 
         # Iterate through player list, grab player info, and query wargaming API:
-        for playerList in servers:
-            for _, id in playerList["playerAccounts"]:
+        for _ , id in playerlist["players"]:
 
-                # Grab user stats from database:
-                userStats = self.bot.DB.levels.find_one({"_id": int(id)}, {"userstats": 1})
+            # Grab user stats from database:
+            userStats = self.bot.DB.levels.find_one({"_id": int(id)}, {"userstats": 1})
 
-                if userStats is None or "userstats" not in userStats:
-                    continue
+            if userStats is None or "userstats" not in userStats:
+                continue
 
-                # Add back into cache:
-                self.userCache[id] = userStats["userstats"]
+            # Add back into cache:
+            self.userCache[id] = userStats["userstats"]
 
 
     """
@@ -101,26 +99,27 @@ class WorldOfTanks(commands.Cog):
     @tasks.loop(hours=24)
     async def morningTask(self):
 
-        # Grab all servers with "playerAccounts" field:
-        projection = {"playerAccounts": 1}
-        servers = self.bot.DB.servers.find({"playerAccounts": { "$exists": True}}, projection)
+        # Grab playerlist from database:
+        playerlist = self.bot.DB.servers.find_one({"_id":"PlayerAccounts"})
+
+        # clear / reset cache, to insert new data:
+        self.userCache.clear()
 
         # Iterate through player list, grab player info, and query wargaming API:
-        for playerList in servers:
-            for wotbName, id in playerList["playerAccounts"]:
+        for wotbName, id in playerlist["players"]:
 
-                # Query wargaming Api for user account:
-                req = requests.get(self.api_query_user.format(self.WOTB_APP_ID, wotbName)).json()
+            # Query wargaming Api for user account:
+            req = requests.get(self.api_query_user.format(self.WOTB_APP_ID, wotbName)).json()
 
-                # Grab wargaming ID:
-                accountID = str(req["data"][0]["account_id"])
+            # Grab wargaming ID:
+            accountID = str(req["data"][0]["account_id"])
 
-                # Query wargaming API for user statistics:
-                stats = requests.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)).json()
-                await self.cache(id, accountID, stats["data"][accountID])
+            # Query wargaming API for user statistics:
+            stats = requests.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)).json()
+            await self.cache(id, accountID, stats["data"][accountID])
 
-                # Add latest user statistics to MongoDB:
-                self.bot.DB.levels.update_one({"_id":int(id)}, {"$set": {"userstats": self.userCache[id]} }, upsert=True)
+            # Add latest user statistics to MongoDB:
+            self.bot.DB.levels.update_one({"_id":int(id)}, {"$set": {"userstats": self.userCache[id]} }, upsert=True)
 
 
     """
@@ -148,7 +147,7 @@ class WorldOfTanks(commands.Cog):
         Querys callers account and statistics from wargamming api, then caches information,
         finally adding account name to servers list of players whom have registered.
 
-        @params:    wotbName{string} users in game name for world of tanks blitz.
+        @params:    wotbName { string } users in game name for world of tanks blitz.
     """
     @commands.command(help=iam_help)
     async def iam(self, context, wotbName:str = None):
@@ -157,7 +156,7 @@ class WorldOfTanks(commands.Cog):
 
         if wotbName is None:
 
-            await context.send("Make sure to pass in arguements")
+            await context.send("Make sure to pass in arguments")
             await context.invoke(self.bot.get_command("help"),"iam")
             return
 
@@ -196,10 +195,11 @@ class WorldOfTanks(commands.Cog):
         stats = requests.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)).json()
         await self.cache(author_id, accountID, stats["data"][accountID])
 
-        await context.send(f'Account for {self.userCache[author_id]["name"]} has been added and now being recorded')
+        await context.send(f'Account for {self.userCache[author_id]["name"]} has been added and is now being recorded')
 
-        query = {"_id":context.guild.id}
-        toAdd = {"playerAccounts": [self.userCache[author_id]["name"], author_id] }
+        # Add to player-base list:
+        query = {"_id": "PlayerAccounts"}
+        toAdd = {"players": [self.userCache[author_id]["name"], author_id] }
 
         # Add user to playerlist in database:
         self.bot.DB.servers.update_one(query, { "$addToSet": toAdd })
@@ -226,7 +226,6 @@ class WorldOfTanks(commands.Cog):
 
                 # Add to cache:
                 self.userCache[author_id] = stored_stats["userstats"]
-                await context.send(f'cache has been reset {self.userCache[author_id]["name"]} is being recorded')
 
             else:
 
