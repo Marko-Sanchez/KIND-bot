@@ -1,5 +1,5 @@
-# KIND-BOT ![python](https://img.shields.io/badge/-python-green) ![Database](https://img.shields.io/badge/-MongoDB-blue) ![hosting](https://img.shields.io/badge/hosted-Heroku-blueviolet)
-A python based bot deployed using heroku and mongodb, initially made for the [KIND] clan in World of Tanks Blitz.
+# KIND-BOT ![python](https://img.shields.io/badge/-python-green) ![Database](https://img.shields.io/badge/-MongoDB-blue) ![hosting](https://img.shields.io/badge/hosted-Azure-blue)
+A python based bot hosted on Azure using mongodb, initially made for the [KIND] clan in World of Tanks Blitz.
 
 Features
 --------
