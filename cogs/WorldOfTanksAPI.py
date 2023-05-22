@@ -1,6 +1,7 @@
 import os
 import discord
 import requests
+
 from datetime import datetime, timezone, timedelta
 from discord.ext import tasks, commands
 from enum import Enum
@@ -26,10 +27,9 @@ class WorldOfTanks(commands.Cog):
     total_battles: lifetime battles played.
     datetime: Date user was added to cache.
     """
+    # TODO: Convert from dictionary to redis database.
     userCache = {}
 
-    iam_help = "Start tracking your WOTB stats!\nBy passing in your WG account name:\niam (username)"
-    stats_help = "Displays overall statistics and daily statistics"
     api_query_user = 'https://api.wotblitz.com/wotb/account/list/?application_id={0}&search={1}'
     api_query_stats = 'https://api.wotblitz.com/wotb/account/info/?account_id={0}&application_id={1}'
 
@@ -149,7 +149,7 @@ class WorldOfTanks(commands.Cog):
 
         @params:    wotbName { string } users in game name for world of tanks blitz.
     """
-    @commands.command(help=iam_help)
+    @commands.command(help="Start tracking your WOTB stats!\nBy passing in your WG account name:\niam (username)")
     async def iam(self, context, wotbName:str = None):
 
         author_id = str(context.author.id)
@@ -179,7 +179,7 @@ class WorldOfTanks(commands.Cog):
                 return
 
         # Processing visual:
-        await context.trigger_typing()
+        await context.typing()
 
         # Query wargaming Api for user:
         req = requests.get(self.api_query_user.format(self.WOTB_APP_ID, wotbName)).json()
@@ -212,7 +212,7 @@ class WorldOfTanks(commands.Cog):
         Calculates caller statistics, from the time the user added there account to the watch list
         or if account has already been recorded from morning PST time.
     """
-    @commands.command(help=stats_help)
+    @commands.command(help="Displays overall statistics and daily statistics")
     async def stats(self, context):
 
         author_id = str(context.author.id)
@@ -234,7 +234,7 @@ class WorldOfTanks(commands.Cog):
                 return
 
         # Processing visual:
-        await context.trigger_typing()
+        await context.typing()
 
         accountID = self.userCache[author_id]["account_id"]
         stats = requests.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)).json()
@@ -275,7 +275,7 @@ class WorldOfTanks(commands.Cog):
             colour = color.value
         )
 
-        embed.set_thumbnail(url=context.author.avatar_url)
+        embed.set_thumbnail(url=context.author.display_avatar.url)
 
         embed.set_footer(text=f'Data cached at {self.userCache[author_id]["datetime"]}')
 
@@ -302,5 +302,5 @@ class WorldOfTanks(commands.Cog):
 
         await context.send(embed=embed)
 
-def setup(bot: commands.Bot):
-    bot.add_cog(WorldOfTanks(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(WorldOfTanks(bot))

@@ -1,4 +1,5 @@
 import discord
+
 from functions import welcome
 from discord.ext import commands
 
@@ -21,5 +22,5 @@ class Greetings(commands.Cog):
         if channel is not None:
             await channel.send(f'{member} imagine leaving lmao, bye <:nail_care:886811404626165861>')
 
-def setup(bot: commands.Bot):
-    bot.add_cog(Greetings(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Greetings(bot))

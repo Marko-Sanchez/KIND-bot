@@ -4,11 +4,11 @@ from discord.ext import commands
 
 class HelpCommand(commands.Cog):
 
-    helpStr = "Displays this menu, displays arguements information"
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(help=helpStr)
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    @commands.command(help="Displays this menu, displays arguements information")
     async def help(self, context, command_name = None):
         embed = discord.Embed(
             title = 'Bot Commands',
@@ -16,7 +16,6 @@ class HelpCommand(commands.Cog):
             timestamp=datetime.utcnow()
         )
 
-        # Embed Beautifiers:
         file = discord.File("images/settings.png", filename="settings.png")
         embed.set_thumbnail(url="attachment://settings.png")
         embed.set_footer(text="\U0001F499 Be Kind")
@@ -47,5 +46,15 @@ class HelpCommand(commands.Cog):
 
         await context.send(file=file, embed=embed)
 
-def setup(bot: commands.Bot):
-    bot.add_cog(HelpCommand(bot))
+    """
+        Error handling for the help command.
+    """
+    @help.error
+    async def help_error(self, context, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            await context.send("Please wait a couple seconds before using this command again.", delete_after=10.0)
+        else:
+            await context.send(f"An error occured: {str(error)}", delete_after=10.0)
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(HelpCommand(bot))

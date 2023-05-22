@@ -1,19 +1,22 @@
 import discord
 import asyncio
+
 from discord.ext import commands
 
 class DeletionCommands(commands.Cog):
 
-    helpd = "Deletes callers previous mesagges by a specified amount\n dd (number)"
-    helpD = "Deletes a specified or all previous users messages in a channel:\n DD (number) or DD (number) @user"
-
-
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # Deletes users most recent messages, sleeps to avoid rate limit.
-    @commands.command(help=helpd)
+    """
+        Deletes users most recent messages, sleeps to avoid rate limit.
+
+        @params:
+                amount{int} number of messages to delete.
+    """
+    @commands.command(help="Deletes callers previous mesagges by a specified amount\n dd (number)")
     async def dd(self, context, amount:int = 0):
+
         if amount == 0 or amount > 20:
             return
 
@@ -28,11 +31,17 @@ class DeletionCommands(commands.Cog):
             if deleted > amount:
                 return
 
-    # Command deletes all or a specified users messages.
-    # Throws: BadArgument and MissingPermissions errors.
-    # Optional arguements {amount}, {member}.
-    # amount: of messages to delete, member: members message to delete.
-    @commands.command(help=helpD)
+    """
+        Command deletes all or a specified users messages.
+
+        @throws:
+                BadArgument and MissingPermissions errors.
+
+        @params:
+                amount{int} number of messages to delete.
+                member{discord.Member} members message to delete.
+    """
+    @commands.command(help="Deletes a specified or all previous users messages in a channel:\n DD (number) or DD (number) @user")
     @commands.has_permissions(manage_messages = True)
     async def DD(self, context, amount: int = 0, member: discord.Member = None):
         if member is None:
@@ -64,5 +73,5 @@ class DeletionCommands(commands.Cog):
         elif isinstance(error, commands.MissingPermissions):
             return
 
-def setup(bot: commands.Bot):
-    bot.add_cog(DeletionCommands(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(DeletionCommands(bot))

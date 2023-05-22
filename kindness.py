@@ -55,20 +55,18 @@ async def getPrefix(_, message):
 # Output logging to termial / stdout:
 logging.basicConfig(level=logging.INFO)
 
-intents = discord.Intents.all()
-
 # Set default bot actions, remove help command for custom made one:
-client = commands.Bot(command_prefix = getPrefix, help_command=None, intents = intents)
+client = commands.Bot(command_prefix = getPrefix, help_command=None, intents = discord.Intents.all())
 client.remove_command('help')
 
 # Database connection for usage in cogs:
 client.DB = db
 
-# Load Cogs:
-for filename in os.listdir('./cogs'):
-
-    if filename.endswith('py'):
-        client.load_extension(f'cogs.{filename[:-3]}')
+# Load all cogs:
+async def load_cogs():
+    for filename in os.listdir('./cogs'):
+        if filename.endswith('py'):
+            await client.load_extension(f'cogs.{filename[:-3]}')
 
 
 """
@@ -95,7 +93,7 @@ async def roleEmbed(_guildID, roleChannel):
         await roleChannel.send("No roles curently in server, to add roles use addRoles:")
         return
 
-    embed.set_image(url = client.user.avatar_url)
+    embed.set_image(url = client.user.avatar.url)
 
     for reaction, name in emoji_rolez["emojis"].items():
         embed.add_field(name =reaction, value=name, inline=True)
@@ -560,4 +558,21 @@ async def setPrefix(context, prefix = None):
     # Add prefix to Cache:
     addPrefix(str(context.guild.id), prefix)
 
-client.run(API_TOKEN)
+@client.command(help="Sync commands")
+@commands.guild_only()
+@commands.is_owner()
+async def sync(context):
+    await context.bot.tree.sync()
+    # for guild in client.guilds:
+    #     try:
+    #         await client.tree.sync(guild=guild)
+    #         await context.channel.send(f'Synced {guild.name}')
+    #     except:
+            # pass
+
+async def main():
+    async with client:
+        await load_cogs()
+        await client.start(API_TOKEN)
+
+asyncio.run(main())
