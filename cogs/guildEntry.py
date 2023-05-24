@@ -11,14 +11,14 @@ class Greetings(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member):
 
-        channel = discord.utils.get(member.guild.text_channels, name='welcome')
+        channel = discord.utils.find(lambda c: 'welcome' in c.name, member.guild.text_channels)
         if channel is not None:
-            await channel.send(f'{member} {welcome()}')
+            await channel.send(f'{member.mention} {welcome()}')
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
 
-        channel = discord.utils.get(member.guild.text_channels, name='welcome')
+        channel = discord.utils.find(lambda c: 'welcome' in c.name, member.guild.text_channels)
         if channel is not None:
             await channel.send(f'{member} imagine leaving lmao, bye <:nail_care:886811404626165861>')
 

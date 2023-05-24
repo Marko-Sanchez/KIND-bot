@@ -312,7 +312,7 @@ async def add_experience(message):
         # Notify user they have leveled up:
         if initial_level < new_level:
 
-             await message.channel.send(f'{message.author} has leveled up to level {new_level}')
+             await message.channel.send(f'{message.author.mention} has leveled up to level {new_level}')
 
              levelPath = guildID + ".user_info.level"
              db.levels.update_one(query, {"$inc":{levelPath:1}})
@@ -334,15 +334,15 @@ async def on_raw_reaction_add(payload):
     if payload.member is None:
         return
 
-    # Grab channel where roles embed message is:
-    rolesChannel = discord.utils.get(payload.member.guild.text_channels, name='roles')
-
     # If bot adds a reaction ignore.
     if payload.member.bot:
         return
 
+    # Grab channel where roles embed message is:
+    rolesChannel = discord.utils.find(lambda m: 'roles' in m.name.lower(), payload.member.guild.text_channels)
+
     # Roles channel does not exist:
-    elif rolesChannel is None:
+    if rolesChannel is None:
         return
 
     # If we are not in roles channel ignore.
@@ -393,7 +393,7 @@ async def on_raw_reaction_remove(payload):
         return
 
     # Grab channel where roles embed message is:
-    rolesChannel = discord.utils.get(guild.text_channels, name='roles')
+    rolesChannel = discord.utils.find(lambda m: 'roles' in m.name.lower(), guild.text_channels)
 
     # If bot removes a reaction ignore.
     if payload.user_id == client.user.id:
@@ -435,7 +435,7 @@ async def on_raw_reaction_remove(payload):
 @client.command(help=roles_help)
 async def roles(context):
 
-    rolesChannel = discord.utils.get(context.guild.text_channels, name='roles')
+    rolesChannel = discord.utils.find(lambda m: 'roles' in m.name.lower(), context.guild.text_channels)
 
     if rolesChannel is None:
         await context.channel.send('A channel with name \'roles\' is needed')
