@@ -270,7 +270,7 @@ class WorldOfTanks(commands.Cog):
             file = discord.File("images/dark_green.png", filename="dark_green.png")
             thumbnail = "attachment://dark_green.png"
 
-        elif 60 <= percent < 65:
+        elif 60 <= percent < 69:
             color = Color.blue
             file = discord.File("images/blue.png", filename="blue.png")
             thumbnail = "attachment://blue.png"
