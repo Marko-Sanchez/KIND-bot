@@ -7,7 +7,7 @@ from discord.ext import tasks, commands
 from enum import Enum
 
 class Color(Enum):
-    defualt = 0x2d4357
+    default = 0x2d4357
     lightGreen = 0x71ba47
     darkGreen = 0x318004
     blue = 0x146bb8
@@ -248,6 +248,7 @@ class WorldOfTanks(commands.Cog):
         old_total_battles = self.userCache[author_id]["total_battles"]
         old_wins = self.userCache[author_id]["wins"]
 
+        # If user has not played any battles today, then don't calculate daily win ratio:
         daily_wr = 0
         battle_diff = new_total_battles - old_total_battles
         if battle_diff != 0:
@@ -255,19 +256,33 @@ class WorldOfTanks(commands.Cog):
 
         # Color code embed msg based on win-ratio:
         percent = float(daily_wr)
-        color = Color.defualt
+        color = Color.default
+        file = None
+        thumbnail = context.author.display_avatar.url
 
         if 50 <= percent < 55:
             color = Color.lightGreen
+            file = discord.File("images/light_green.png", filename="light_green.png")
+            thumbnail = "attachment://light_green.png"
 
         elif 55 <= percent < 60:
             color = Color.darkGreen
+            file = discord.File("images/dark_green.png", filename="dark_green.png")
+            thumbnail = "attachment://dark_green.png"
 
         elif 60 <= percent < 65:
             color = Color.blue
+            file = discord.File("images/blue.png", filename="blue.png")
+            thumbnail = "attachment://blue.png"
 
-        elif percent >= 65:
+        elif percent >= 69:
             color = Color.purple
+            file = discord.File("images/purple.png", filename="purple.png")
+            thumbnail = "attachment://purple.png"
+
+        elif percent < 50 and battle_diff != 0:
+            file = discord.File("images/red.png", filename="red.png")
+            thumbnail = "attachment://red.png"
 
         # Create Embed:
         embed = discord.Embed(
@@ -275,7 +290,7 @@ class WorldOfTanks(commands.Cog):
             colour = color.value
         )
 
-        embed.set_thumbnail(url=context.author.display_avatar.url)
+        embed.set_thumbnail(url=thumbnail)
 
         embed.set_footer(text=f'Data cached at {self.userCache[author_id]["datetime"]}')
 
@@ -285,7 +300,7 @@ class WorldOfTanks(commands.Cog):
             inline=False
         )
 
-        if percent != 0:
+        if battle_diff != 0:
 
             # recent battle time in los Angeles local time:
             timezone_offset = -7.0
@@ -300,7 +315,7 @@ class WorldOfTanks(commands.Cog):
                 inline=False
             )
 
-        await context.send(embed=embed)
+        await context.send(file=file, embed=embed)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(WorldOfTanks(bot))
