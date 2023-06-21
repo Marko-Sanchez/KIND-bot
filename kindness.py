@@ -4,6 +4,7 @@ import os
 import re
 import asyncio
 import pymongo
+import redis
 
 from functions import *
 from discord.ext import commands
@@ -12,6 +13,7 @@ API_TOKEN = os.environ.get('API_TOKEN')
 MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
 
 db = pymongo.MongoClient(MONGO_TOKEN).discord
+redis_cache = redis.Redis(host='redis', port=6379, decode_responses=True)
 
 """
     Grabs servers custom prefix from either the local cache or database.
@@ -265,11 +267,11 @@ async def on_message(message):
         elif client.user in message.mentions:
             await message.reply(reply())
 
-    # Give user expereince points for their message:
+    # Give user experience points for their message:
     await add_experience(message)
 
 """
-    Gives user expereince points for messages sent in guild / server. Pulls users
+    Gives user experience points for messages sent in guild / server. Pulls users
     information from database and increments points, while also checking if user has
     reached a certain amount of points to level up.
 
@@ -285,37 +287,61 @@ async def add_experience(message):
     authorID = message.author.id
     guildID = str(message.author.guild.id)
 
-    # Query user information and only send back information for this guild:
     query = {"_id":authorID, guildID: {"$exists":True} }
     projection = {guildID: 1}
 
-    stats = db.levels.find_one(query, projection)
+    # Check if user and their guild exist in cache:
+    if redis_cache.exists(authorID) and guildID in redis_cache.json().get(authorID):
+        stats = redis_cache.json().get(authorID)
 
-    # If user does not exist or guild is not in user account:
-    if stats is None or guildID not in stats:
+    else:
+        # query only current guild:
+        stats = db.levels.find_one(query, projection)
 
-        newField = {"$set": { guildID: {"user_info": {"exp":5, "level":1} } } }
+    # If user does not exist or there is no information for this guild:
+    if stats is None:
+
+        print("User/ GuildID is not in database")
+        data = {guildID: {"user_info": {"exp":5, "level":1} } }
+        newField = {"$set": data }
+
         db.levels.update_one({"_id":authorID}, newField, upsert= True)
+
+        # add user to redis cache and set expire time to 1 hour:
+        authorID = str(authorID)
+        if redis_cache.exists(authorID):
+            redis_cache.json().set(authorID, '$.' + guildID, data.get(guildID))
+        else:
+            redis_cache.json().set(authorID, '$', data)
+            redis_cache.expire(authorID, 3600)
 
     else:
 
-        # Increment points to pre-existing expereince pool:
-        exp = stats[guildID]["user_info"]["exp"] + 5
+        # Does user exist in redis cache:
+        if not redis_cache.exists(authorID):
+            redis_cache.json().set(authorID, '$', stats)
+            redis_cache.expire(authorID, 3600)
 
-        initial_level = stats[guildID]["user_info"]["level"]
+        elif guildID not in redis_cache.json().get(authorID):
+            redis_cache.json().set(authorID, '$.' + guildID, stats.get(guildID))
+
+        words = len(message.content.split())
+        exp = redis_cache.json().numincrby(authorID, guildID + ".user_info.exp", words)
+
+        # Calculate new level:
+        initial_level = redis_cache.json().get(authorID, guildID + ".user_info.level")
         new_level = int(exp ** (1/4))
 
-        # Increment points in database:
-        expPath = guildID + ".user_info.exp"
-        db.levels.update_one(query, {"$inc": {expPath:5} })
-
-        # Notify user they have leveled up:
         if initial_level < new_level:
 
              await message.channel.send(f'{message.author.mention} has leveled up to level {new_level}')
 
              levelPath = guildID + ".user_info.level"
-             db.levels.update_one(query, {"$inc":{levelPath:1}})
+             redis_cache.json().set(authorID, levelPath, new_level)
+             db.levels.update_one(query, {"$inc": {levelPath:1} })
+
+        # Upload to MongoDB:
+        db.levels.update_one({"_id":authorID}, {"$set": {guildID + ".user_info.exp": exp}}, upsert= True)
 
 """
     Event listener for emote reaction additions, if user reacted in '#roles' channel
