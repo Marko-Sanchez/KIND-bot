@@ -2,7 +2,8 @@ services:
 
   bot:
     container_name: blue
-    image: mark09/kind:v3.0.3
+    build: .
+    image: mark09/kind:test
     depends_on:
       - redis
     env_file:
