@@ -1,4 +1,4 @@
-# KIND-BOT ![python](https://img.shields.io/badge/-python-green) ![Database](https://img.shields.io/badge/-MongoDB-blue) ![hosting](https://img.shields.io/badge/hosted-Azure-blue)
+# KIND-BOT ![python](https://img.shields.io/badge/-python-green) ![Database](https://img.shields.io/badge/-MongoDB-blue) [Cache](https://img.shields.io/badge/Cache-Redis-red) ![hosting](https://img.shields.io/badge/hosted-Azure-blue)
 A python based bot hosted on Azure using mongodb, initially made for the [KIND] clan in World of Tanks Blitz.
 
 Features
@@ -22,8 +22,6 @@ Objectives
 - [x] Add more bot commands alongside command permissions.
 - [x] Connect to World Of Tanks API.
 - [x] Pull players information from wotb API, and display their statistics.
-- [ ] Give users ability to change '#roles' or '#welcome' channel names.
-- [ ] Optional toggle certain bot behaviors( role-setting, game-api, etc).
 ----
 
 "*From the moment I understood the weakness of my flesh, it disgusted me.
