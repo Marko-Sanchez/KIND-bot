@@ -7,11 +7,11 @@ from discord.ext import tasks, commands
 from enum import Enum
 
 class Color(Enum):
-    default = 0x2d4357
+    default    = 0x2d4357
     lightGreen = 0x71ba47
-    darkGreen = 0x318004
-    blue = 0x146bb8
-    purple = 0x5d11bf
+    darkGreen  = 0x318004
+    blue       = 0x146bb8
+    purple     = 0x5d11bf
 
 class WorldOfTanks(commands.Cog):
 
@@ -316,6 +316,44 @@ class WorldOfTanks(commands.Cog):
             )
 
         await context.send(file=file, embed=embed)
+
+
+    """
+        Displays 30-day users statistics from blitzstars.com.
+    """
+    @commands.command(help="Displays blitstars statistics")
+    async def bstats(self, context):
+
+        author_id = str(context.author.id)
+        if author_id not in self.userCache:
+
+            # Check if data is stored in DB, and add to cache if it exist:
+            projection = {"userstats": 1}
+            stored_stats = self.bot.DB.levels.find_one({"_id":context.author.id}, projection)
+
+            if stored_stats is not None and "userstats" in stored_stats:
+
+                # Add to cache:
+                self.userCache[author_id] = stored_stats["userstats"]
+
+            else:
+
+                await context.send(f'User is not being recorded, to begin watching use {context.prefix}iam command')
+                await context.invoke(self.bot.get_command("help"),"iam")
+                return
+
+        # Processing visual:
+        await context.typing()
+
+        accountID = self.userCache[author_id]["account_id"]
+        response  = requests.head(f'https://blitzstars.com/sigs/{accountID}')
+
+        if response.ok:
+            await context.send('https://blitzstars.com/sigs/{0}'.format(accountID))
+            return
+        else:
+            await context.send(f'No blitzstars account found for {self.userCache[author_id]["name"]}', delete_after=10)
+            return
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(WorldOfTanks(bot))
