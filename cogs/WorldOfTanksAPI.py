@@ -1,6 +1,6 @@
 import os
 import discord
-import requests
+import aiohttp
 
 from datetime import datetime, timezone, timedelta
 from discord.ext import tasks, commands
@@ -30,7 +30,7 @@ class WorldOfTanks(commands.Cog):
     # TODO: Convert from dictionary to redis database.
     userCache = {}
 
-    api_query_user = 'https://api.wotblitz.com/wotb/account/list/?application_id={0}&search={1}'
+    api_query_user  = 'https://api.wotblitz.com/wotb/account/list/?application_id={0}&search={1}'
     api_query_stats = 'https://api.wotblitz.com/wotb/account/info/?account_id={0}&application_id={1}'
 
     WOTB_APP_ID = os.environ.get('WOTB_APP_ID')
@@ -38,7 +38,20 @@ class WorldOfTanks(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.bot.loop.create_task(self.on_start_up())
+
+    """
+        Sets up aiohttp session and starts morning task.
+    """
+    async def cog_load(self):
         self.morningTask.start()
+        self.session = aiohttp.ClientSession()
+
+    """
+        When bot goes online, load player information onto cache
+    """
+    async def on_start_up(self):
+        await self.bot.wait_until_ready()
+        await self.reloadCache()
 
     """
         Store Api request information in cache to be used as base plate to
@@ -50,11 +63,11 @@ class WorldOfTanks(commands.Cog):
                 userStats{dictionary} contains users statistics pulled from wargaming API.
     """
     async def cache(self, author_id, accountID, userStats):
-        self.userCache[author_id] = {}
-        self.userCache[author_id]["name"] = userStats["nickname"]
+        self.userCache[author_id]                  = {}
+        self.userCache[author_id]["name"]          = userStats["nickname"]
         self.userCache[author_id]["total_battles"] = userStats["statistics"]["all"]["battles"]
-        self.userCache[author_id]["wins"] = userStats["statistics"]["all"]["wins"]
-        self.userCache[author_id]["account_id"] = accountID
+        self.userCache[author_id]["wins"]          = userStats["statistics"]["all"]["wins"]
+        self.userCache[author_id]["account_id"]    = accountID
 
         # Pacific Standard Time for Los Angeles (UTC−07:00)
         timezone_offset = -7.0
@@ -85,14 +98,6 @@ class WorldOfTanks(commands.Cog):
             # Add back into cache:
             self.userCache[id] = userStats["userstats"]
 
-
-    """
-        When bot goes online, load player information onto cache
-    """
-    async def on_start_up(self):
-        await self.bot.wait_until_ready()
-        await self.reloadCache()
-
     """
         Every morning at 9am PST pull latest user statistics and add to cache.
     """
@@ -109,13 +114,16 @@ class WorldOfTanks(commands.Cog):
         for wotbName, id in playerlist["players"]:
 
             # Query wargaming Api for user account:
-            req = requests.get(self.api_query_user.format(self.WOTB_APP_ID, wotbName)).json()
+            async with self.session.get(self.api_query_user.format(self.WOTB_APP_ID, wotbName)) as response:
+                req = await response.json()
 
             # Grab wargaming ID:
             accountID = str(req["data"][0]["account_id"])
 
             # Query wargaming API for user statistics:
-            stats = requests.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)).json()
+            async with self.session.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)) as response:
+                stats = await response.json()
+
             await self.cache(id, accountID, stats["data"][accountID])
 
             # Add latest user statistics to MongoDB:
@@ -168,12 +176,11 @@ class WorldOfTanks(commands.Cog):
         else:
 
             # Check if data is stored in DB, and add to cache if it exist:
-            projection = {"userstats": 1}
+            projection   = {"userstats": 1}
             stored_stats = self.bot.DB.levels.find_one({"_id":context.author.id}, projection)
 
+            # Add to cache:
             if stored_stats is not None and "userstats" in stored_stats:
-
-                # Add to cache:
                 self.userCache[author_id] = stored_stats["userstats"]
                 await context.send(f'cache has been reset {self.userCache[author_id]["name"]} is being recorded')
                 return
@@ -182,17 +189,20 @@ class WorldOfTanks(commands.Cog):
         await context.typing()
 
         # Query wargaming Api for user:
-        req = requests.get(self.api_query_user.format(self.WOTB_APP_ID, wotbName)).json()
+        async with self.session.get(self.api_query_user.format(self.WOTB_APP_ID, wotbName)) as response:
+            req = await response.json()
 
         # If meta count is greater then one or == 0, means a list was returned and users name should be more specific:
         if req["meta"]["count"] == 0 or req["meta"]["count"] > 1:
-            await context.send("Make sure you have passed in the correct name")
+            await context.send("Make sure you have passed in the correct name", delete_after=20)
             return
 
         accountID = str(req["data"][0]["account_id"])
 
         # Query user stats and store in cache:
-        stats = requests.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)).json()
+        async with self.session.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)) as response:
+            stats = await response.json()
+
         await self.cache(author_id, accountID, stats["data"][accountID])
 
         await context.send(f'Account for {self.userCache[author_id]["name"]} has been added and is now being recorded')
@@ -216,88 +226,73 @@ class WorldOfTanks(commands.Cog):
     async def stats(self, context):
 
         author_id = str(context.author.id)
-        if author_id not in self.userCache:
+        if await self.exist(author_id, context) is False:
+            return
 
-            # Check if data is stored in DB, and add to cache if it exist:
-            projection = {"userstats": 1}
-            stored_stats = self.bot.DB.levels.find_one({"_id":context.author.id}, projection)
-
-            if stored_stats is not None and "userstats" in stored_stats:
-
-                # Add to cache:
-                self.userCache[author_id] = stored_stats["userstats"]
-
-            else:
-
-                await context.send(f'User is not being recorded, to begin watching use {context.prefix}iam command')
-                await context.invoke(self.bot.get_command("help"),"iam")
-                return
-
-        # Processing visual:
         await context.typing()
 
         accountID = self.userCache[author_id]["account_id"]
-        stats = requests.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)).json()
+        async with self.session.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)) as response:
+            stats = await response.json()
 
         # Calculate overall win ratio:
         new_total_battles = stats["data"][accountID]["statistics"]["all"]["battles"]
-        new_wins = stats["data"][accountID]["statistics"]["all"]["wins"]
-        overall_wr = "{:.2f}".format((new_wins / new_total_battles)* 100)
+        new_wins          = stats["data"][accountID]["statistics"]["all"]["wins"]
+        overall_wr        = "{:.2f}".format((new_wins / new_total_battles)* 100)
 
         # Calculate daily win ratio:
         old_total_battles = self.userCache[author_id]["total_battles"]
-        old_wins = self.userCache[author_id]["wins"]
+        old_wins          = self.userCache[author_id]["wins"]
 
         # If user has not played any battles today, then don't calculate daily win ratio:
-        daily_wr = 0
+        daily_wr    = 0
         battle_diff = new_total_battles - old_total_battles
         if battle_diff != 0:
             daily_wr = "{:.2f}".format(((new_wins - old_wins) / battle_diff)* 100)
 
         # Color code embed msg based on win-ratio:
-        percent = float(daily_wr)
-        color = Color.default
-        file = None
+        percent   = float(daily_wr)
+        color     = Color.default
+        file      = None
         thumbnail = context.author.display_avatar.url
 
         if 50 <= percent < 55:
-            color = Color.lightGreen
-            file = discord.File("images/light_green.png", filename="light_green.png")
+            color     = Color.lightGreen
+            file      = discord.File("images/light_green.png", filename="light_green.png")
             thumbnail = "attachment://light_green.png"
 
         elif 55 <= percent < 60:
-            color = Color.darkGreen
-            file = discord.File("images/dark_green.png", filename="dark_green.png")
+            color     = Color.darkGreen
+            file      = discord.File("images/dark_green.png", filename="dark_green.png")
             thumbnail = "attachment://dark_green.png"
 
         elif 60 <= percent < 69:
-            color = Color.blue
-            file = discord.File("images/blue.png", filename="blue.png")
+            color     = Color.blue
+            file      = discord.File("images/blue.png", filename="blue.png")
             thumbnail = "attachment://blue.png"
 
         elif percent >= 69:
-            color = Color.purple
-            file = discord.File("images/purple.png", filename="purple.png")
+            color     = Color.purple
+            file      = discord.File("images/purple.png", filename="purple.png")
             thumbnail = "attachment://purple.png"
 
         elif percent < 50 and battle_diff != 0:
-            file = discord.File("images/red.png", filename="red.png")
+            file      = discord.File("images/red.png", filename="red.png")
             thumbnail = "attachment://red.png"
 
         # Create Embed:
         embed = discord.Embed(
-            title = f'{self.userCache[author_id]["name"]} statistics',
+            title  = f'{self.userCache[author_id]["name"]} statistics',
             colour = color.value
         )
 
         embed.set_thumbnail(url=thumbnail)
-
         embed.set_footer(text=f'Data cached at {self.userCache[author_id]["datetime"]}')
 
         embed.add_field(
-            name = f'Overall win-ratio: {overall_wr}%',
-            value = f'Total battles: {self.userCache[author_id]["total_battles"]:,d} before',
-            inline=False
+            name   = f'Overall win-ratio: {overall_wr}%',
+            value  = f'Total battles: {self.userCache[author_id]["total_battles"]:,d} before',
+            inline = False
         )
 
         if battle_diff != 0:
@@ -310,9 +305,9 @@ class WorldOfTanks(commands.Cog):
             time = datetime.fromtimestamp(stats["data"][accountID]["last_battle_time"],tzinfo)
 
             embed.add_field(
-                name = f'Daily win-ratio: {daily_wr}%',
-                value = f'Total battles: {new_total_battles:,d} after\nlast battle time: {time.strftime("%b-%-d %-I:%M %p")}',
-                inline=False
+                name   = f'Daily win-ratio: {daily_wr}%',
+                value  = f'Total battles: {new_total_battles:,d} after\nlast battle time: {time.strftime("%b-%-d %-I:%M %p")}',
+                inline = False
             )
 
         await context.send(file=file, embed=embed)
@@ -325,35 +320,39 @@ class WorldOfTanks(commands.Cog):
     async def bstats(self, context):
 
         author_id = str(context.author.id)
-        if author_id not in self.userCache:
+        if await self.exist(author_id, context) is False:
+            return
 
-            # Check if data is stored in DB, and add to cache if it exist:
-            projection = {"userstats": 1}
-            stored_stats = self.bot.DB.levels.find_one({"_id":context.author.id}, projection)
-
-            if stored_stats is not None and "userstats" in stored_stats:
-
-                # Add to cache:
-                self.userCache[author_id] = stored_stats["userstats"]
-
-            else:
-
-                await context.send(f'User is not being recorded, to begin watching use {context.prefix}iam command')
-                await context.invoke(self.bot.get_command("help"),"iam")
-                return
-
-        # Processing visual:
         await context.typing()
 
         accountID = self.userCache[author_id]["account_id"]
-        response  = requests.head(f'https://blitzstars.com/sigs/{accountID}')
+        async with self.session.head(f'https://blitzstars.com/sigs/{accountID}') as response:
+            if response.ok:
+                await context.send(f'https://blitzstars.com/sigs/{accountID}')
+            else:
+                await context.send(f'No blitzstars account found for {self.userCache[author_id]["name"]}', delete_after=10)
 
-        if response.ok:
-            await context.send('https://blitzstars.com/sigs/{0}'.format(accountID))
-            return
-        else:
-            await context.send(f'No blitzstars account found for {self.userCache[author_id]["name"]}', delete_after=10)
-            return
+    """
+        Checks if users exist in local cache, if not then check if user is stored in database.
+        If user is not stored in database, then user is not being recorded.
+    """
+    async def exist(self, author_id, context):
+        if author_id not in self.userCache:
+
+            # Check if data is stored in DB, and add to cache if it exist:
+            projection   = {"userstats": 1}
+            stored_stats = self.bot.DB.levels.find_one({"_id":context.author.id}, projection)
+
+            # Add to cache:
+            if stored_stats is not None and "userstats" in stored_stats:
+                self.userCache[author_id] = stored_stats["userstats"]
+
+            else:
+                await context.send(f'User is not being recorded, to begin watching use {context.prefix}iam command')
+                await context.invoke(self.bot.get_command("help"),"iam")
+                return False
+
+        return True
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(WorldOfTanks(bot))

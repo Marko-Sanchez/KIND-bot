@@ -13,7 +13,7 @@ API_TOKEN = os.environ.get('API_TOKEN')
 MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
 
 db = pymongo.MongoClient(MONGO_TOKEN).discord
-redis_cache = redis.Redis(host='localhost', port=6379, decode_responses=True)
+redis_cache = redis.Redis(host='localhost', port=6379, decode_responses=True) # TODO: Change localhost to redis when testing locally
 # check that we were able to connect to redis:
 if not redis_cache.ping():
     raise Exception('Could not connect to redis')
