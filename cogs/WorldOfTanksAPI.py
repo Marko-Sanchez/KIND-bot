@@ -1,6 +1,7 @@
 import os
 import discord
 import aiohttp
+from typing import Optional
 
 from datetime import datetime, timezone, timedelta
 from discord.ext import tasks, commands
@@ -13,7 +14,7 @@ class Color(Enum):
     blue       = 0x146bb8
     purple     = 0x5d11bf
 
-class WorldOfTanks(commands.Cog):
+class WorldOfTanks(commands.GroupCog,name="wotb", description="Commands to track users statistics in World of Tanks Blitz"):
 
     """
     Local cache to store user name and ID:
@@ -155,46 +156,43 @@ class WorldOfTanks(commands.Cog):
         Querys callers account and statistics from wargamming api, then caches information,
         finally adding account name to servers list of players whom have registered.
 
-        @params:    wotbName { string } users in game name for world of tanks blitz.
+        @params:    wotbname { string } users in game name for world of tanks blitz.
     """
-    @commands.command(help="Start tracking your WOTB stats!\nBy passing in your WG account name:\niam (username)")
-    async def iam(self, context, wotbName:str = None):
+    @discord.app_commands.checks.cooldown(1, 10)
+    @discord.app_commands.command(name="iam", description="Start tracking your WOTB stats!")
+    async def iam(self, interaction: discord.Interaction, wotbname: Optional[str] = None):
 
-        author_id = str(context.author.id)
+        author_id = str(interaction.user.id)
 
-        if wotbName is None:
+        if wotbname is None:
 
-            await context.send("Make sure to pass in arguments")
-            await context.invoke(self.bot.get_command("help"),"iam")
+            await interaction.response.send_message("Make sure to pass in your usename")
             return
 
         elif author_id in self.userCache:
 
-            await context.send(f'{self.userCache[author_id]["name"]} is already being recorded')
+            await interaction.response.send_message(f'{self.userCache[author_id]["name"]} is already being recorded')
             return
 
         else:
 
             # Check if data is stored in DB, and add to cache if it exist:
             projection   = {"userstats": 1}
-            stored_stats = self.bot.DB.levels.find_one({"_id":context.author.id}, projection)
+            stored_stats = self.bot.DB.levels.find_one({"_id":interaction.user.id}, projection)
 
             # Add to cache:
             if stored_stats is not None and "userstats" in stored_stats:
                 self.userCache[author_id] = stored_stats["userstats"]
-                await context.send(f'cache has been reset {self.userCache[author_id]["name"]} is being recorded')
+                await interaction.response.send_message(f'{self.userCache[author_id]["name"]} is already being recorded')
                 return
 
-        # Processing visual:
-        await context.typing()
-
         # Query wargaming Api for user:
-        async with self.session.get(self.api_query_user.format(self.WOTB_APP_ID, wotbName)) as response:
+        async with self.session.get(self.api_query_user.format(self.WOTB_APP_ID, wotbname)) as response:
             req = await response.json()
 
         # If meta count is greater then one or == 0, means a list was returned and users name should be more specific:
         if req["meta"]["count"] == 0 or req["meta"]["count"] > 1:
-            await context.send("Make sure you have passed in the correct name", delete_after=20)
+            await interaction.response.send_message("Make sure you have passed in the correct name", ephemeral=True)
             return
 
         accountID = str(req["data"][0]["account_id"])
@@ -205,7 +203,7 @@ class WorldOfTanks(commands.Cog):
 
         await self.cache(author_id, accountID, stats["data"][accountID])
 
-        await context.send(f'Account for {self.userCache[author_id]["name"]} has been added and is now being recorded')
+        await interaction.response.send_message(f'Account for {self.userCache[author_id]["name"]} has been added and is now being recorded')
 
         # Add to player-base list:
         query = {"_id": "PlayerAccounts"}
@@ -215,21 +213,30 @@ class WorldOfTanks(commands.Cog):
         self.bot.DB.servers.update_one(query, { "$addToSet": toAdd })
 
         # Push stats to users profile in database aswell:
-        self.bot.DB.levels.update_one({"_id":context.author.id}, {"$set": {"userstats": self.userCache[id]} }, upsert=True)
+        self.bot.DB.levels.update_one({"_id":interaction.user.id}, {"$set": {"userstats": self.userCache[id]} }, upsert=True)
 
+    """
+        Error handling for iam command.
+    """
+    @iam.error
+    async def iam_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        if isinstance(error, discord.app_commands.CommandOnCooldown):
+            await interaction.response.send_message("Command is on cooldown, try again in a few seconds.", ephemeral=True)
+        else:
+            print(error.__str__)
+            await interaction.response.send_message("An error has occured, please try again later.", ephemeral=True)
 
     """
         Calculates caller statistics, from the time the user added there account to the watch list
         or if account has already been recorded from morning PST time.
     """
-    @commands.command(help="Displays overall statistics and daily statistics")
-    async def stats(self, context):
+    @discord.app_commands.checks.cooldown(1, 10)
+    @discord.app_commands.command(name="stats", description="Displays overall statistics and daily statistics")
+    async def stats(self, interaction: discord.Interaction):
 
-        author_id = str(context.author.id)
-        if await self.exist(author_id, context) is False:
+        author_id = str(interaction.user.id)
+        if await self.exist(author_id, interaction) is False:
             return
-
-        await context.typing()
 
         accountID = self.userCache[author_id]["account_id"]
         async with self.session.get(self.api_query_stats.format(accountID, self.WOTB_APP_ID)) as response:
@@ -253,8 +260,8 @@ class WorldOfTanks(commands.Cog):
         # Color code embed msg based on win-ratio:
         percent   = float(daily_wr)
         color     = Color.default
-        file      = None
-        thumbnail = context.author.display_avatar.url
+        file      = discord.utils.MISSING
+        thumbnail = interaction.user.display_avatar.url if interaction.user.display_avatar else interaction.user.default_avatar.url
 
         if 50 <= percent < 55:
             color     = Color.lightGreen
@@ -277,6 +284,7 @@ class WorldOfTanks(commands.Cog):
             thumbnail = "attachment://purple.png"
 
         elif percent < 50 and battle_diff != 0:
+            color     = Color.default
             file      = discord.File("images/red.png", filename="red.png")
             thumbnail = "attachment://red.png"
 
@@ -310,46 +318,64 @@ class WorldOfTanks(commands.Cog):
                 inline = False
             )
 
-        await context.send(file=file, embed=embed)
+        await interaction.response.send_message(embed=embed, file=file)
 
+    """
+        Error handling for stats command.
+    """
+    @stats.error
+    async def stats_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        if isinstance(error, discord.app_commands.CommandOnCooldown):
+            await interaction.response.send_message("Command is on cooldown, try again in a few seconds.", ephemeral=True)
+        else:
+            print(error.__str__)
+            await interaction.response.send_message("An error has occured, please try again later.", ephemeral=True)
 
     """
         Displays 30-day users statistics from blitzstars.com.
     """
-    @commands.command(help="Displays blitstars statistics")
-    async def bstats(self, context):
+    @discord.app_commands.command(name="bstats", description="Displays 30-day statistics from blitzstars.com")
+    async def bstats(self, interaction: discord.Interaction):
 
-        author_id = str(context.author.id)
-        if await self.exist(author_id, context) is False:
+        author_id = str(interaction.user.id)
+        if await self.exist(author_id, interaction) is False:
             return
-
-        await context.typing()
 
         accountID = self.userCache[author_id]["account_id"]
         async with self.session.head(f'https://blitzstars.com/sigs/{accountID}') as response:
             if response.ok:
-                await context.send(f'https://blitzstars.com/sigs/{accountID}')
+                await interaction.response.send_message(f'https://blitzstars.com/sigs/{accountID}')
             else:
-                await context.send(f'No blitzstars account found for {self.userCache[author_id]["name"]}', delete_after=10)
+                await interaction.response.send_message(f'No blitzstars account found for {self.userCache[author_id]["name"]}')
+
+    """
+        Error handling for bstats command.
+    """
+    @bstats.error
+    async def bstats_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        if isinstance(error, discord.app_commands.CommandOnCooldown):
+            await interaction.response.send_message("Command is on cooldown, try again in a few seconds.", ephemeral=True)
+        else:
+            print(error.__str__)
+            await interaction.response.send_message("An error has occured, please try again later.", ephemeral=True)
 
     """
         Checks if users exist in local cache, if not then check if user is stored in database.
         If user is not stored in database, then user is not being recorded.
     """
-    async def exist(self, author_id, context):
+    async def exist(self, author_id, interaction: discord.Interaction):
         if author_id not in self.userCache:
 
             # Check if data is stored in DB, and add to cache if it exist:
             projection   = {"userstats": 1}
-            stored_stats = self.bot.DB.levels.find_one({"_id":context.author.id}, projection)
+            stored_stats = self.bot.DB.levels.find_one({"_id":interaction.user.id}, projection)
 
             # Add to cache:
             if stored_stats is not None and "userstats" in stored_stats:
                 self.userCache[author_id] = stored_stats["userstats"]
 
             else:
-                await context.send(f'User is not being recorded, to begin watching use {context.prefix}iam command')
-                await context.invoke(self.bot.get_command("help"),"iam")
+                await interaction.response.send_message("User is not being recorded, to begin watching use /iam command")
                 return False
 
         return True
