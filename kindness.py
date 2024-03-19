@@ -593,12 +593,6 @@ async def setPrefix(context, prefix = None):
 @commands.is_owner()
 async def sync(context):
     await context.bot.tree.sync()
-    # for guild in client.guilds:
-    #     try:
-    #         await client.tree.sync(guild=guild)
-    #         await context.channel.send(f'Synced {guild.name}')
-    #     except:
-            # pass
 
 async def main():
     async with client:
