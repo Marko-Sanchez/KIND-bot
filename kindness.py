@@ -1,23 +1,23 @@
 import discord
 import logging
 import os
-import re
 import asyncio
 import pymongo
-import redis
+
+from classes.RedisCache import RedisCache
 
 from functions import *
 from discord.ext import commands
 
-API_TOKEN = os.environ.get('API_TOKEN')
+API_TOKEN   = os.environ.get('API_TOKEN')
 MONGO_TOKEN = os.environ.get('MONGO_TOKEN')
 
 db = pymongo.MongoClient(MONGO_TOKEN).discord
-redis_cache = redis.Redis(host='localhost', port=6379, decode_responses=True) # TODO: Change localhost to redis when testing locally
-# check that we were able to connect to redis:
-if not redis_cache.ping():
-    raise Exception('Could not connect to redis')
 
+# Redis Cache connection: If testing use 'redis', else 'localhost'
+redisCache = RedisCache()
+if not redisCache.ping():
+    raise Exception('Could not connect to redis')
 
 """
     Grabs servers custom prefix from either the local cache or database.
@@ -67,8 +67,8 @@ client.remove_command('help')
 
 # Database connection for usage in cogs:
 client.DB = db
+client.redisCache = redisCache
 
-# Load all cogs:
 async def load_cogs():
     for filename in os.listdir('./cogs'):
         if filename.endswith('py'):
@@ -233,119 +233,6 @@ async def on_guild_join(guild):
             break
 
     await guildAdmin.send("For a list of commands type `!help` in server")
-
-"""
-    Event listener for user messages, if message contains keywords bot replies to user, then
-    gives user experience for chatting.
-
-    @outputs:   If regex matches bot will respond to user with  certain phrases.
-                If user reaches a certain amount of experience points, bot notifys user has
-                leveled up.
-"""
-@client.event
-async def on_message(message):
-
-    if message.author.bot:
-        return
-
-    # If command wait for it to be executed and return:
-    elif (await client.get_context(message)).valid:
-        await client.process_commands(message)
-        return
-
-    if random.randint(1,10) % 3 == 0:
-
-        # Regex patterns to match, for bot response:
-        hello_regex = re.compile('^[hH]ello!?|^[hH]i!?|[hH]ey')
-        smh_regex = re.compile('smh')
-
-        # string contains greeting:
-        if hello_regex.match(message.content):
-            await message.reply(greetings())
-
-        # string contains 'smh':
-        elif smh_regex.match(message.content):
-            await message.channel.send(f'{message.author.mention} smh my head')
-
-        # User mentions bot:
-        elif client.user in message.mentions:
-            await message.reply(reply())
-
-    # Give user experience points for their message:
-    await add_experience(message)
-
-"""
-    Gives user experience points for messages sent in guild / server. Pulls users
-    information from database and increments points, while also checking if user has
-    reached a certain amount of points to level up.
-
-    @params: message{ discord.Message } users mesage from text-channel.
-
-    @returns: Once points have been added updates database with new information.
-              If user has reached a certain amount of points sends message to channel
-              notifying them.
-"""
-@client.event
-async def add_experience(message):
-
-    authorID = message.author.id
-    guildID = str(message.author.guild.id)
-
-    query = {"_id":authorID, guildID: {"$exists":True} }
-    projection = {guildID: 1}
-
-    # Check if user and their guild exist in cache:
-    if redis_cache.exists(authorID) and guildID in redis_cache.json().get(authorID):
-        stats = redis_cache.json().get(authorID)
-
-    else:
-        # query only current guild:
-        stats = db.levels.find_one(query, projection)
-
-    # If user does not exist or there is no information for this guild:
-    if stats is None:
-
-        print("User/ GuildID is not in database")
-        data = {guildID: {"user_info": {"exp":5, "level":1} } }
-        newField = {"$set": data }
-
-        db.levels.update_one({"_id":authorID}, newField, upsert= True)
-
-        # add user to redis cache and set expire time to 1 hour:
-        authorID = str(authorID)
-        if redis_cache.exists(authorID):
-            redis_cache.json().set(authorID, '$.' + guildID, data.get(guildID))
-        else:
-            redis_cache.json().set(authorID, '$', data)
-            redis_cache.expire(authorID, 3600)
-
-    else:
-
-        # Does user exist in redis cache:
-        if not redis_cache.exists(authorID):
-            redis_cache.json().set(authorID, '$', stats)
-            redis_cache.expire(authorID, 3600)
-
-        elif guildID not in redis_cache.json().get(authorID):
-            redis_cache.json().set(authorID, '$.' + guildID, stats.get(guildID))
-
-        words = len(message.content.split())
-        exp = redis_cache.json().numincrby(authorID, guildID + ".user_info.exp", words)
-
-        # Calculate new level:
-        initial_level = redis_cache.json().get(authorID, guildID + ".user_info.level")
-        new_level = int(exp ** (1/4))
-
-        if initial_level < new_level:
-
-             await message.channel.send(f'{message.author.mention} has leveled up to level {new_level}')
-
-             levelPath = guildID + ".user_info.level"
-             redis_cache.json().set(authorID, levelPath, new_level)
-             db.levels.update_one(query, {"$inc": {levelPath:1} })
-
-        # Upload to MongoDB:
-        db.levels.update_one({"_id":authorID}, {"$set": {guildID + ".user_info.exp": exp}}, upsert= True)
 
 """
     Event listener for emote reaction additions, if user reacted in '#roles' channel
